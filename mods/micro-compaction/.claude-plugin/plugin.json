@@ -1,0 +1,10 @@
+{
+  "name": "micro-compaction",
+  "version": "0.1.2",
+  "description": "Ajoute /compact micro : remplace le contenu des fichiers lus par un court repère et retire la réflexion, sans appel au modèle, pour libérer de la place",
+  "author": {
+    "name": "Rui He"
+  },
+  "homepage": "https://github.com/ruihe774/cc-micro-compaction",
+  "license": "Unlicense"
+}
