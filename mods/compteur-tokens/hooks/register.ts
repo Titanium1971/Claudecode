@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, ModelUsage, Register } from 'claude-code'
+import type { EngineInterface, ModelUsage, Register, SessionRateLimit } from 'claude-code'
 
 import type { ModelTotals } from '../types'
 
@@ -94,11 +94,83 @@ async function record($: EngineInterface, rawModel: string, usage: ModelUsage): 
   }
 }
 
+// Limites d'abonnement : la lecture que le moteur fait lui-même des fenêtres 5 h et 7 jours
+// (les en-têtes de la dernière réponse de l'API), via $.session.usage().
+const LIMIT_NAMES: Record<string, string> = {
+  five_hour: 'Limite 5 h',
+  seven_day: 'Limite 7 jours',
+  seven_day_opus: 'Limite 7 jours (Opus)',
+  seven_day_sonnet: 'Limite 7 jours (Sonnet)',
+  spend_limit: 'Plafond de dépenses',
+}
+const LIMIT_ORDER = Object.keys(LIMIT_NAMES)
+
+function pad(value: number): string {
+  return String(value).padStart(2, '0')
+}
+
+function clockTime(date: Date): string {
+  return `${date.getHours()} h ${pad(date.getMinutes())}`
+}
+
+function duration(ms: number): string {
+  const minutes = Math.ceil(ms / 60_000)
+  const days = Math.floor(minutes / 1440)
+  const hours = Math.floor((minutes % 1440) / 60)
+  if (days > 0) {
+    return `${days} j ${hours} h`
+  }
+
+  return hours > 0 ? `${hours} h ${pad(minutes % 60)}` : `${minutes} min`
+}
+
+function resetText(iso: string, now: number): string {
+  const at = Date.parse(iso)
+  if (Number.isNaN(at)) {
+    return ''
+  }
+  const date = new Date(at)
+  const isToday = date.toDateString() === new Date(now).toDateString()
+  const when = isToday ? `à ${clockTime(date)}` : `le ${pad(date.getDate())}/${pad(date.getMonth() + 1)} à ${clockTime(date)}`
+
+  return at > now ? `, remise à zéro ${when} (dans ${duration(at - now)})` : `, remise à zéro ${when}`
+}
+
+// Les lignes des limites d'abonnement, ou undefined quand le moteur n'en a aucune lecture.
+async function limitLines($: EngineInterface): Promise<string[] | undefined> {
+  let limits: SessionRateLimit[]
+  try {
+    limits = (await $.session.usage()).rateLimits
+  } catch {
+    return undefined
+  }
+  if (limits.length === 0) {
+    return undefined
+  }
+  let now: number
+  try {
+    now = await $.clock.now()
+  } catch {
+    now = Date.now()
+  }
+  const rank = (kind: string): number => (LIMIT_ORDER.includes(kind) ? LIMIT_ORDER.indexOf(kind) : LIMIT_ORDER.length)
+
+  return [...limits]
+    .sort((a, b) => rank(a.kind) - rank(b.kind))
+    .map(
+      l =>
+        `  ${LIMIT_NAMES[l.kind] ?? `Limite ${l.kind}`} : ${String(l.percentUsed).replace('.', ',')} % utilisés${l.resetsAt === undefined ? '' : resetText(l.resetsAt, now)}`,
+    )
+}
+
 async function summary($: EngineInterface): Promise<string> {
   const all = await read($, totals)
   const models = Object.keys(all).sort()
+  const limits = await limitLines($)
   if (models.length === 0) {
-    return "Aucun appel au modèle compté pour l'instant."
+    const none = "Aucun appel au modèle compté pour l'instant."
+
+    return limits === undefined ? none : [none, "Limites d'abonnement :", ...limits].join('\n')
   }
 
   const lines = ['Coût de la session (équivalent API, estimation) :']
@@ -120,6 +192,11 @@ async function summary($: EngineInterface): Promise<string> {
   }
   const limit = await read($, alertAt)
   lines.push(limit > 0 ? `Alerte à ${dollars(limit)}.` : 'Alerte désactivée.')
+  if (limits === undefined) {
+    lines.push("Limites d'abonnement : non disponibles dans cette session.")
+  } else {
+    lines.push("Limites d'abonnement :", ...limits)
+  }
   lines.push('Commandes : /cout, /cout alerte <dollars> (0 pour couper), /cout zero')
 
   return lines.join('\n')
@@ -129,7 +206,7 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'cout',
-      description: 'Tokens et coût estimé de la session, par modèle',
+      description: "Tokens et coût estimé de la session, par modèle, et limites d'abonnement (5 h, 7 jours)",
       argumentHint: '[alerte <dollars> | zero]',
     })
 
