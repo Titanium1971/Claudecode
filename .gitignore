@@ -1,0 +1,9 @@
+# Fichiers générés automatiquement par Claude Code au chargement des mods
+mods/*/.claude-plugin/types/
+mods/*/tsconfig.json
+node_modules/
+.DS_Store
+# Secrets : ne jamais les committer
+.env
+.env.*
+!.env.example
