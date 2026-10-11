@@ -1,0 +1,8 @@
+{
+  "name": "garde-fous",
+  "version": "0.1.0",
+  "description": "Garde-fous : protège les fichiers secrets et bloque les commandes Git ou shell dangereuses",
+  "author": {
+    "name": "Cyril"
+  }
+}

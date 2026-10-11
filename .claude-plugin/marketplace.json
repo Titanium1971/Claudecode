@@ -1,0 +1,17 @@
+{
+  "name": "claudecode",
+  "owner": { "name": "Cyril" },
+  "description": "Les mods Claude Code de Cyril : tableau de bord et garde-fous",
+  "plugins": [
+    {
+      "name": "tableau-de-bord",
+      "source": "./mods/tableau-de-bord",
+      "description": "Tableau de bord : avancement des tâches, activité, fichiers modifiés, état Git et statistiques de session"
+    },
+    {
+      "name": "garde-fous",
+      "source": "./mods/garde-fous",
+      "description": "Garde-fous : protège les fichiers secrets et bloque les commandes Git ou shell dangereuses"
+    }
+  ]
+}

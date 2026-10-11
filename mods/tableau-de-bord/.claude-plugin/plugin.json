@@ -1,0 +1,9 @@
+{
+  "name": "tableau-de-bord",
+  "version": "0.1.0",
+  "description": "Tableau de bord : avancement des tâches, activité, fichiers modifiés, état Git et statistiques de session",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "Cyril"
+  }
+}
