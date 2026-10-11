@@ -12,7 +12,10 @@ Les mods de ce dépôt sont dans `mods/`. Une session cloud ne les charge pas to
 2. Copie chaque dossier `mods/<nom>/` dans le dossier de mods de la session indiqué par le skill
    (`/root/.claude/dev-mods/<id-de-session>/<nom>/`), sans `.claude-plugin/types/` ni `tsconfig.json`.
 3. Dis à Cyril de répondre **« Enable for this session »** à la question « Enable hot reloading for this session? ».
-4. Une fois chargés, le panneau « Tableau de bord » s'ouvre tout seul. `/dashboard` le rouvre et `/taches` donne un résumé.
+4. Une fois chargés, `/dashboard` affiche le résumé (tâches, session, Git) dans la conversation et dit si un écran
+   a dessiné le panneau « Tableau de bord ». Sur claude.ai (navigateur) et l'app iPad, le panneau ne s'affiche pas :
+   le résumé le remplace. Pour le panneau graphique, utilise Claude Code sur ordinateur (terminal ou app de bureau).
+   `/taches` donne le résumé seul.
 
 ## Façon de travailler
 
