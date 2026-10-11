@@ -1,0 +1,9 @@
+{
+  "name": "sorties-courtes",
+  "version": "0.1.0",
+  "description": "Sorties courtes : raccourcit les très longues sorties de commandes avant qu'elles n'arrivent au modèle, pour économiser les tokens",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "Cyril"
+  }
+}
