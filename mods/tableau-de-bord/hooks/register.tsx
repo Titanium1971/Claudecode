@@ -163,9 +163,14 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'dashboard' }, async $ => {
-    await $.ui.open({ id: PANE, title: TITLE })
+    const opened = await $.ui.open({ id: PANE, title: TITLE })
+    if (opened.isPlaced) {
+      return { text: 'Tableau de bord affiché.' }
+    }
 
-    return { text: 'Tableau de bord ouvert.' }
+    return {
+      text: `Tableau de bord ouvert mais pas visible ici (${opened.reason}). Tape /taches pour le résumé en texte.`,
+    }
   })
 
   on('command.run', { command: 'taches' }, async $ => ({ text: await summary($) }))

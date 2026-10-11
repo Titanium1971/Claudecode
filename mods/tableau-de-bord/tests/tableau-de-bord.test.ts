@@ -31,3 +31,23 @@ test('suit la création et l’avancement des tâches dans le panneau', async ($
     await ui.unmount()
   }
 })
+
+test('/dashboard dit si le panneau est affiché', async ($, on) => {
+  mock.clock(on)
+  on('ui.open', { id: 'tableau-de-bord' }, () => ({ value: { isPlaced: true } }))
+
+  const { text } = await $.command.run({ command: 'dashboard' })
+  expect(text).toBe('Tableau de bord affiché.')
+})
+
+test('/dashboard dit pourquoi le panneau n’est pas visible', async ($, on) => {
+  mock.clock(on)
+  on('ui.open', { id: 'tableau-de-bord' }, () => ({
+    value: { isPlaced: false, reason: 'cette app ne place pas les panneaux' },
+  }))
+
+  const { text } = await $.command.run({ command: 'dashboard' })
+  expect(text).toBe(
+    'Tableau de bord ouvert mais pas visible ici (cette app ne place pas les panneaux). Tape /taches pour le résumé en texte.',
+  )
+})
