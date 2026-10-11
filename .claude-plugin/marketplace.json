@@ -1,7 +1,9 @@
 {
   "name": "claudecode",
-  "owner": { "name": "Cyril" },
-  "description": "Les mods Claude Code de Cyril : tableau de bord et garde-fous",
+  "owner": {
+    "name": "Cyril"
+  },
+  "description": "Les mods Claude Code de Cyril : tableau de bord, garde-fous et choix du modèle",
   "plugins": [
     {
       "name": "tableau-de-bord",
@@ -12,6 +14,11 @@
       "name": "garde-fous",
       "source": "./mods/garde-fous",
       "description": "Garde-fous : protège les fichiers secrets et bloque les commandes Git ou shell dangereuses"
+    },
+    {
+      "name": "choix-modele",
+      "source": "./mods/choix-modele",
+      "description": "Choix du modèle : envoie chaque demande à Haiku, Sonnet ou Opus selon sa difficulté, pour économiser les tokens"
     }
   ]
 }

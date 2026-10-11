@@ -1,0 +1,9 @@
+{
+  "name": "choix-modele",
+  "version": "0.1.0",
+  "description": "Choix du modèle : envoie chaque demande à Haiku, Sonnet ou Opus selon sa difficulté, pour économiser les tokens",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "Cyril"
+  }
+}
