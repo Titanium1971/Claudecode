@@ -20,8 +20,9 @@ const SEC = NOON / 1000
  * The engine beneath the plugin: a session in /work/shop, an http.fetch
  * that records every request and answers with `reply`, and a prompt queue.
  */
-function engine(on: On, now: number, reply: (url: string) => Reply = () => '{"ok":true,"result":[]}', options: { failRegister?: boolean; store?: Record<string, unknown> } = {}) {
+function engine(on: On, now: number, reply: (url: string) => Reply = () => '{"ok":true,"result":[]}', options: { failRegister?: boolean; store?: Record<string, unknown>; env?: Record<string, string> } = {}) {
   const clock = mock.clock(on, { now })
+  mock.env(on, options.env ?? {})
   mock.store(on, options.store ?? {})
   let sessionId = 'session-a'
   const calls: Call[] = []
@@ -476,4 +477,45 @@ test('with ntfy inbound off, nothing is polled', { options: NTFY }, async ($, on
   await $.session.start(start)
   await clock.advance(20_000)
   expect(calls).toHaveLength(0)
+})
+
+const ENV_TG = { TELEGRAM_BOT_TOKEN: '555:envtoken', TELEGRAM_CHAT_ID: '99' }
+
+test('telegram: the token and chat id come from the environment when no option sets them', { options: { min_gap_seconds: 0 } }, async ($, on) => {
+  const { sent, settle } = engine(on, NOON, undefined, { env: ENV_TG })
+  await $.session.start(start)
+
+  await finishTurn($, 125_000, 'Done.')
+  await settle()
+  expect(sent()).toHaveLength(1)
+  expect(sent()[0]!.url).toBe('https://api.telegram.org/bot555:envtoken/sendMessage')
+  expect(sent()[0]!.body?.chat_id).toBe('99')
+})
+
+test('telegram: the options win over the environment', { options: TG_OUT }, async ($, on) => {
+  const { sent, settle } = engine(on, NOON, undefined, { env: ENV_TG })
+  await $.session.start(start)
+
+  await finishTurn($, 125_000, 'Done.')
+  await settle()
+  expect(sent()[0]!.url).toBe('https://api.telegram.org/bot123:abc/sendMessage')
+  expect(sent()[0]!.body?.chat_id).toBe('42')
+})
+
+test('an ntfy topic keeps ntfy even when the Telegram variables exist', { options: NTFY }, async ($, on) => {
+  const { sent, settle } = engine(on, NOON, undefined, { env: ENV_TG })
+  await $.session.start(start)
+
+  await finishTurn($, 125_000, 'Done.')
+  await settle()
+  expect(sent()[0]!.url).toBe('https://ntfy.sh')
+})
+
+test('with only one Telegram variable, nothing is sent and nothing breaks', { options: { min_gap_seconds: 0 } }, async ($, on) => {
+  const { sent, settle } = engine(on, NOON, undefined, { env: { TELEGRAM_BOT_TOKEN: '555:envtoken' } })
+  await $.session.start(start)
+
+  await finishTurn($, 125_000, 'Done.')
+  await settle()
+  expect(sent()).toHaveLength(0)
 })

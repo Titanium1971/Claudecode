@@ -55,13 +55,13 @@
     "telegram_token": {
       "type": "string",
       "title": "Telegram bot token",
-      "description": "The token BotFather gave you for your bot.",
+      "description": "The token BotFather gave you for your bot. Left empty, the TELEGRAM_BOT_TOKEN environment variable is used.",
       "sensitive": true
     },
     "telegram_chat_id": {
       "type": "string",
       "title": "Telegram chat id",
-      "description": "Your chat id with the bot. Messages from any other chat are ignored.",
+      "description": "Your chat id with the bot. Messages from any other chat are ignored. Left empty, the TELEGRAM_CHAT_ID environment variable is used.",
       "default": ""
     },
     "inbound": {

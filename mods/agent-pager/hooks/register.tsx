@@ -63,6 +63,21 @@ export function readConfig(o: PluginOptions): PagerConfig {
   }
 }
 
+/**
+ * Claudecode local change: the Telegram bot token and chat id may come from the
+ * environment (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID), so a cloud session needs
+ * no settings file. The options win when both are set. With the default backend
+ * (ntfy) left unconfigured and both variables present, Telegram is used.
+ */
+export function withTelegramEnv(cfg: PagerConfig, token: string | undefined, chatId: string | undefined): PagerConfig {
+  const telegramToken = cfg.telegramToken || str(token)
+  const telegramChatId = cfg.telegramChatId || str(chatId)
+  const backend: Backend =
+    cfg.backend === 'ntfy' && !cfg.ntfyTopic && telegramToken && telegramChatId ? 'telegram' : cfg.backend
+
+  return { ...cfg, backend, telegramToken, telegramChatId }
+}
+
 /** Why the backend cannot send, or null when it can. */
 export function missing(cfg: PagerConfig): string | null {
   if (cfg.backend === 'off') return 'backend is off'
@@ -559,9 +574,15 @@ export function questionBody(questions: unknown): string {
 }
 
 export const register: Register = (on, options) => {
-  const cfg = readConfig(options)
+  let cfg = readConfig(options)
 
   on('session.start', async ($, e, next) => {
+    // Claudecode local change: read the Telegram secrets from the environment.
+    try {
+      cfg = withTelegramEnv(readConfig(options), await $.env.get('TELEGRAM_BOT_TOKEN'), await $.env.get('TELEGRAM_CHAT_ID'))
+    } catch {
+      // no environment to read: the options alone stand
+    }
     const now = await $.clock.now()
     await update($, startedAt, () => now)
     await update($, interactive, () => e.isInteractive)
