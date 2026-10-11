@@ -3,7 +3,7 @@
   "owner": {
     "name": "Cyril"
   },
-  "description": "Les mods Claude Code de Cyril : tableau de bord, garde-fous et choix du modèle",
+  "description": "Les mods Claude Code de Cyril : tableau de bord, garde-fous, choix du modèle, compteur de tokens, sorties courtes et garde-fous connecteurs",
   "plugins": [
     {
       "name": "tableau-de-bord",
@@ -19,6 +19,21 @@
       "name": "choix-modele",
       "source": "./mods/choix-modele",
       "description": "Choix du modèle : envoie chaque demande à Haiku, Sonnet ou Opus selon sa difficulté, pour économiser les tokens"
+    },
+    {
+      "name": "compteur-tokens",
+      "source": "./mods/compteur-tokens",
+      "description": "Compteur de tokens : tokens et coût estimé de la session par modèle, économie réalisée, alerte quand la session devient chère"
+    },
+    {
+      "name": "sorties-courtes",
+      "source": "./mods/sorties-courtes",
+      "description": "Sorties courtes : raccourcit les très longues sorties de commandes avant qu'elles n'arrivent au modèle, pour économiser les tokens"
+    },
+    {
+      "name": "garde-fous-connecteurs",
+      "source": "./mods/garde-fous-connecteurs",
+      "description": "Garde-fous connecteurs : demande confirmation avant qu'un connecteur (Gmail, Airtable, Notion, Make, n8n, Drive…) envoie, modifie ou supprime quelque chose"
     }
   ]
 }

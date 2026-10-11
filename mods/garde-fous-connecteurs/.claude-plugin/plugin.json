@@ -1,0 +1,9 @@
+{
+  "name": "garde-fous-connecteurs",
+  "version": "0.1.0",
+  "description": "Garde-fous connecteurs : demande confirmation avant qu'un connecteur (Gmail, Airtable, Notion, Make, n8n, Drive…) envoie, modifie ou supprime quelque chose",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "Cyril"
+  }
+}
