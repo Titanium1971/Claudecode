@@ -1,0 +1,15 @@
+{
+  "_aide": "Chaque entrée devient une commande /nom (minuscules, chiffres et tirets). {args} est remplacé par ce que tu tapes après la commande. Les clés qui commencent par _ sont ignorées. Après une modification : /raccourcis recharger.",
+  "workflow-n8n": {
+    "description": "Crée un workflow n8n importable, expliqué nœud par nœud",
+    "prompt": "Crée un workflow n8n qui {args}. Écris le JSON complet, importable tel quel dans n8n (menu Workflows > Import from File), dans un fichier .json du dépôt. Ensuite, explique chaque nœud en français simple : ce qu'il fait, ses réglages importants et les identifiants (credentials) à configurer. Termine par la marche à suivre pour le tester, étape par étape."
+  },
+  "scenario-make": {
+    "description": "Conçoit un scénario Make avec son blueprint, expliqué module par module",
+    "prompt": "Conçois un scénario Make qui {args}. Écris le blueprint JSON importable (Import Blueprint) dans un fichier .json du dépôt. Ensuite, explique chaque module en français simple : son rôle, les champs à mapper, les connexions à créer, et les filtres ou routeurs utilisés. Indique combien d'opérations le scénario consomme par exécution."
+  },
+  "base-airtable": {
+    "description": "Conçoit une base Airtable : tables, champs, liens et vues",
+    "prompt": "Conçois une base Airtable pour {args}. Propose les tables, les champs avec leur type Airtable exact (texte, sélection unique, lien vers une autre table, rollup, formule…), les liens entre tables et 2 ou 3 vues utiles. Présente le tout sous forme de tableaux, explique tes choix en français simple et donne les formules prêtes à copier. Ne crée rien dans Airtable sans me le demander."
+  }
+}
