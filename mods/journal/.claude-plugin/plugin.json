@@ -1,0 +1,9 @@
+{
+  "name": "journal",
+  "version": "0.1.0",
+  "description": "Journal de bord : après chaque demande qui a changé quelque chose, ajoute une entrée courte à JOURNAL.md (date, demande, fichiers modifiés, commits, PR) pour reprendre le travail sur un autre appareil",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "Cyril"
+  }
+}
