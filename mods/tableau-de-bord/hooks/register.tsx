@@ -22,6 +22,13 @@ const stats = atom({ plugin: 'tableau-de-bord', key: 'stats' } as const, {
   lastTurnSeconds: 0,
 } as SessionStats)
 
+const SURFACE_NAME: Record<string, string> = {
+  terminal: 'le terminal',
+  desktop: "l'app de bureau",
+  vscode: 'VS Code',
+  mobile: "l'app mobile",
+}
+
 const ICON: Record<TaskStatus, string> = {
   completed: '✔',
   in_progress: '▶',
@@ -143,6 +150,7 @@ async function summary($: EngineInterface): Promise<string> {
 
 export const register: Register = on => {
   let turnStartedAt = 0
+  let lastDrawn: { surface: string; at: number } | undefined
 
   on('session.start', async ($, e, next) => {
     const now = await $.clock.now()
@@ -163,14 +171,14 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'dashboard' }, async $ => {
-    const opened = await $.ui.open({ id: PANE, title: TITLE })
-    if (opened.isPlaced) {
-      return { text: 'Tableau de bord affiché.' }
-    }
+    await $.ui.open({ id: PANE, title: TITLE })
+    const now = await $.clock.now()
+    const seen =
+      lastDrawn === undefined
+        ? "Aucun écran n'a dessiné le panneau dans cette session : ton app ne sait sans doute pas l'afficher."
+        : `Panneau dessiné sur ${SURFACE_NAME[lastDrawn.surface] ?? lastDrawn.surface} il y a ${duration(now - lastDrawn.at)}.`
 
-    return {
-      text: `Tableau de bord ouvert mais pas visible ici (${opened.reason}). Tape /taches pour le résumé en texte.`,
-    }
+    return { text: `${seen}\n\n${await summary($)}` }
   })
 
   on('command.run', { command: 'taches' }, async $ => ({ text: await summary($) }))
@@ -283,6 +291,7 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text, Button } = $.ui.resolve(e)
+    lastDrawn = { surface: e.surface, at: await $.clock.now() }
     const width = Math.max(20, e.props.bodyColumns)
     const list = await allTasks($)
     const s = await read($, stats)
