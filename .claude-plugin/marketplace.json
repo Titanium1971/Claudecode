@@ -76,6 +76,11 @@
       "description": "Ajoute /compact micro : remplace le contenu des fichiers lus par un court repère et retire la réflexion, sans appel au modèle, pour libérer de la place"
     },
     {
+      "name": "reflect-mod",
+      "source": "./mods/reflect-mod",
+      "description": "Reflect (Bayram Annakov, MIT) : repère dans tes messages les corrections qui valent une règle durable et te propose de les enregistrer dans CLAUDE.md"
+    },
+    {
       "name": "raccourcis",
       "source": "./mods/raccourcis",
       "description": "Raccourcis : tes propres commandes /nom, définies dans raccourcis.json à la racine du dépôt, qui envoient à Claude une demande complète (workflow n8n, scénario Make, base Airtable…)"

@@ -1,0 +1,13 @@
+{
+  "name": "reflect-mod",
+  "version": "3.3.0",
+  "description": "Reflect : repère dans tes messages courts les corrections qui valent une règle durable (« non, utilise pnpm ») et te propose de les enregistrer dans CLAUDE.md, pour que Claude s'en souvienne aux sessions suivantes",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "Bayram Annakov",
+    "url": "https://github.com/bayramannakov"
+  },
+  "homepage": "https://github.com/bayramannakov/claude-reflect",
+  "repository": "https://github.com/bayramannakov/claude-reflect",
+  "license": "MIT"
+}
