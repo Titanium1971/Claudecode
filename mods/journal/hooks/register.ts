@@ -48,13 +48,36 @@ export function cut(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`
 }
 
+// Ce qui n'est pas un message de la personne : sorties de commandes, rappels et notifications du système.
+const NOT_TYPED =
+  /<(local-command-stdout|local-command-caveat|command-name|command-message|command-args|system-reminder|task-notification)\b[^>]*>[\s\S]*?<\/\1>/gi
+// La sortie d'un mod commence par le nom des plugins (« etude-de-cas+raccourcis: … »).
+const MOD_OUTPUT = /^[a-z0-9-]+(\+[a-z0-9-]+)*: /
+const NOTICE = /^(queued-remote-notifications|\[?SYSTEM NOTIFICATION)/i
+
+// Le titre d'une entrée : les mots de la personne, sinon ce qui a lancé le tour.
 export function summarizePrompt(text: string): string {
-  const flat = text
+  const raw = text.trim()
+  if (/^Stop hook feedback/i.test(raw)) {
+    return 'Vérification de fin de tour'
+  }
+  const flat = raw
+    .replace(NOT_TYPED, ' ')
     .replace(/<\/?[a-z][\w-]*(\s[^>]*)?>/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+  if (flat !== '' && !NOTICE.test(flat) && !MOD_OUTPUT.test(flat)) {
+    return cut(mask(flat), PROMPT_MAX)
+  }
+  const commands = [...raw.matchAll(/<command-name>\s*\/?([\w:-]+)\s*<\/command-name>/gi)].map(m => `/${m[1]}`)
+  if (commands.length > 0) {
+    return cut(`Commandes lancées : ${[...new Set(commands)].join(', ')}`, PROMPT_MAX)
+  }
+  if (NOTICE.test(flat) || /<(system-reminder|task-notification)\b/i.test(raw)) {
+    return 'Notification reçue (GitHub ou tâche de fond)'
+  }
 
-  return flat === '' ? '(suite du travail)' : cut(mask(flat), PROMPT_MAX)
+  return MOD_OUTPUT.test(flat) ? 'Sortie de commandes collée' : '(suite du travail)'
 }
 
 // ---------- Date et heure de Paris, écrites à la main ----------
