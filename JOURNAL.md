@@ -25,3 +25,8 @@ Les entrées les plus récentes sont en bas. `/journal` affiche les dernières.
 
 - Commit
 - Push
+
+## 2026-10-12 05:23 — Quand je tape le plugin, rien ne se passe
+
+- Commit
+- Push
