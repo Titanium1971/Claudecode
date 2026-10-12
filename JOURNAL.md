@@ -73,3 +73,7 @@ Les entrées les plus récentes sont en bas. `/journal` affiche les dernières.
 
 - Commit
 - Push
+
+## 2026-10-12 06:25 — queued-remote-notifications pending 1 unread notification (GitHub activity on a subscribed PR: 1) Notifications are que…
+
+- PR créée « Journal : entrée de la règle reflect enregistrée » : https://github.com/Titanium1971/Claudecode/pull/10
