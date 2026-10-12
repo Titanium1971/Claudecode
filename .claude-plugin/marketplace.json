@@ -3,7 +3,7 @@
   "owner": {
     "name": "Cyril"
   },
-  "description": "Les mods Claude Code de Cyril : tableau de bord, garde-fous, choix du modèle, compteur de tokens, sorties courtes et garde-fous connecteurs",
+  "description": "Les mods Claude Code de Cyril : tableau de bord, garde-fous, choix du modèle, économie de tokens, sécurité, alertes et outils de travail",
   "plugins": [
     {
       "name": "tableau-de-bord",
@@ -34,6 +34,66 @@
       "name": "garde-fous-connecteurs",
       "source": "./mods/garde-fous-connecteurs",
       "description": "Garde-fous connecteurs : demande confirmation avant qu'un connecteur (Gmail, Airtable, Notion, Make, n8n, Drive…) envoie, modifie ou supprime quelque chose"
+    },
+    {
+      "name": "agent-pager",
+      "source": "./mods/agent-pager",
+      "description": "Alerte sur ton téléphone (ntfy ou Telegram) quand Claude finit un long travail ou attend ta réponse"
+    },
+    {
+      "name": "arrester",
+      "source": "./mods/arrester",
+      "description": "Après un blocage (hook, règle, mode auto ou ton refus), empêche Claude de contourner l'interdiction par un autre outil et lui dit de s'arrêter pour te demander"
+    },
+    {
+      "name": "auto-continue",
+      "source": "./mods/auto-continue",
+      "description": "Reprend tout seul après la limite des 5 heures : attend la remise à zéro puis envoie « continue » à ta place"
+    },
+    {
+      "name": "image-shrinker",
+      "source": "./mods/image-shrinker",
+      "description": "Réduit les grandes images avant que Claude ne les lise (macOS seulement, via sips) et lui indique l'échelle pour garder les bonnes positions"
+    },
+    {
+      "name": "journal",
+      "source": "./mods/journal",
+      "description": "Journal de bord : après chaque demande qui a changé quelque chose, ajoute une entrée courte à JOURNAL.md (date, demande, fichiers modifiés, commits, PR) pour reprendre le travail sur un autre appareil"
+    },
+    {
+      "name": "lecture-ciblee",
+      "source": "./mods/lecture-ciblee",
+      "description": "Lecture ciblée : empêche Claude de lire un très gros fichier en entier et l'oriente vers Grep puis une lecture du seul passage utile, pour économiser des tokens"
+    },
+    {
+      "name": "micro-compaction",
+      "source": "./mods/micro-compaction",
+      "description": "Ajoute /compact micro : remplace le contenu des fichiers lus par un court repère et retire la réflexion, sans appel au modèle, pour libérer de la place"
+    },
+    {
+      "name": "raccourcis",
+      "source": "./mods/raccourcis",
+      "description": "Raccourcis : tes propres commandes /nom, définies dans raccourcis.json à la racine du dépôt, qui envoient à Claude une demande complète (workflow n8n, scénario Make, base Airtable…)"
+    },
+    {
+      "name": "secret-redactor",
+      "source": "./mods/secret-redactor",
+      "description": "Masque les secrets, e-mails et adresses IP par des repères avant que le modèle ne les voie, et remet les vraies valeurs dans les appels d'outils"
+    },
+    {
+      "name": "smart-compact",
+      "source": "./mods/smart-compact",
+      "description": "Propose de compacter la conversation au bon moment : après un commit, des tests au vert, avant l'expiration du cache, ou quand Claude le demande"
+    },
+    {
+      "name": "verif-avant-commit",
+      "source": "./mods/verif-avant-commit",
+      "description": "Vérif avant commit : avant chaque git commit, lance claude plugin validate puis claude plugin test sur chaque mod modifié et bloque le commit si l'un échoue"
+    },
+    {
+      "name": "verif-workflows",
+      "source": "./mods/verif-workflows",
+      "description": "Vérification des workflows : quand Claude écrit un workflow n8n ou un blueprint Make en JSON, le fichier est relu et chaque problème qui empêcherait l'import est signalé à Claude pour qu'il le corrige"
     }
   ]
 }

@@ -1,0 +1,31 @@
+{
+  "name": "auto-continue",
+  "version": "0.1.0",
+  "description": "Reprend tout seul après la limite des 5 heures : attend la remise à zéro puis envoie « continue » à ta place",
+  "author": {
+    "name": "icedevil2001"
+  },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "threshold": {
+      "type": "number",
+      "title": "Show button at % of 5-hour limit used",
+      "description": "The Auto-continue button appears above the prompt once the 5-hour window is at least this full.",
+      "default": 25
+    },
+    "graceMinutes": {
+      "type": "number",
+      "title": "Minutes to wait after the reset",
+      "description": "Extra margin after the reset time before sending the message.",
+      "default": 5
+    },
+    "message": {
+      "type": "string",
+      "title": "Message to send on resume",
+      "description": "The prompt submitted when the limit resets.",
+      "default": "continue"
+    }
+  },
+  "homepage": "https://github.com/icedevil2001/auto-continue",
+  "license": "MIT"
+}

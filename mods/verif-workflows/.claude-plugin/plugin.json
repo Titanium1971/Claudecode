@@ -1,0 +1,9 @@
+{
+  "name": "verif-workflows",
+  "version": "0.1.0",
+  "description": "Vérification des workflows : quand Claude écrit un workflow n8n ou un blueprint Make en JSON, le fichier est relu et chaque problème qui empêcherait l'import est signalé à Claude pour qu'il le corrige",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "Cyril"
+  }
+}

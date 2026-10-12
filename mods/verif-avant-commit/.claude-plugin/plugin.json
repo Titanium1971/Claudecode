@@ -1,0 +1,9 @@
+{
+  "name": "verif-avant-commit",
+  "version": "0.1.0",
+  "description": "Vérif avant commit : avant chaque git commit, lance claude plugin validate puis claude plugin test sur chaque mod modifié et bloque le commit si l'un échoue",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "Cyril"
+  }
+}

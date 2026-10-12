@@ -1,0 +1,10 @@
+{
+  "name": "image-shrinker",
+  "version": "0.3.1",
+  "description": "Réduit les grandes images avant que Claude ne les lise (macOS seulement, via sips) et lui indique l'échelle pour garder les bonnes positions",
+  "author": {
+    "name": "Varun Moka"
+  },
+  "homepage": "https://github.com/varunmoka7/image-shrinker",
+  "license": "MIT"
+}

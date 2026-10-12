@@ -1,0 +1,9 @@
+{
+  "name": "raccourcis",
+  "version": "0.1.0",
+  "description": "Raccourcis : tes propres commandes /nom, définies dans raccourcis.json à la racine du dépôt, qui envoient à Claude une demande complète (workflow n8n, scénario Make, base Airtable…)",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "Cyril"
+  }
+}

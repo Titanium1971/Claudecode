@@ -1,7 +1,7 @@
 {
   "name": "compteur-tokens",
   "version": "0.1.0",
-  "description": "Compteur de tokens : tokens et coût estimé de la session par modèle, économie réalisée, alerte quand la session devient chère",
+  "description": "Compteur de tokens : tokens et coût estimé de la session par modèle, économie réalisée, alerte quand la session devient chère, et limites d'abonnement 5 h et 7 jours",
   "types": "./types/index.d.ts",
   "author": {
     "name": "Cyril"

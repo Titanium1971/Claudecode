@@ -1,0 +1,9 @@
+{
+  "name": "lecture-ciblee",
+  "version": "0.1.0",
+  "description": "Lecture ciblée : empêche Claude de lire un très gros fichier en entier et l'oriente vers Grep puis une lecture du seul passage utile, pour économiser des tokens",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "Cyril"
+  }
+}
