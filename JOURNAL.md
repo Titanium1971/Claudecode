@@ -82,3 +82,7 @@ Les entrées les plus récentes sont en bas. `/journal` affiche les dernières.
 
 - Commit
 - Push
+
+## 2026-10-12 06:28 — Notification reçue (GitHub ou tâche de fond)
+
+- PR créée « journal : titres justes pour les notifications et les commandes » : https://github.com/Titanium1971/Claudecode/pull/11
