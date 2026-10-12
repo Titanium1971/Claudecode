@@ -57,3 +57,8 @@ Les entrées les plus récentes sont en bas. `/journal` affiche les dernières.
 
 - Commit
 - Push
+
+## 2026-10-12 06:00 — Continue la tache
+
+- Commit
+- PR créée « commandes : compter seulement les mods ; fiche portfolio à jour » : https://github.com/Titanium1971/Claudecode/pull/8
