@@ -192,3 +192,23 @@ test('isJournalOnly : seul JOURNAL.md, oui ; avec d’autres fichiers, non', asy
   expect(isJournalOnly('git add JOURNAL.md && git add README.md && git commit -m "Doc"')).toBe(false)
   expect(isJournalOnly('git commit -am "Tout"')).toBe(false)
 })
+
+test('le titre ne prend ni les notifications ni les sorties de commandes pour une demande', async () => {
+  expect(summarizePrompt('<task-notification><task-type>queued-remote-notifications</task-type><status>pending</status></task-notification>')).toBe(
+    'Notification reçue (GitHub ou tâche de fond)',
+  )
+  expect(summarizePrompt('<task-type>queued-remote-notifications</task-type><status>pending</status><summary>2 unread</summary>')).toBe(
+    'Notification reçue (GitHub ou tâche de fond)',
+  )
+  expect(summarizePrompt('<system-reminder>[SYSTEM NOTIFICATION - NOT USER INPUT] rappel</system-reminder>\nCorrige le journal')).toBe('Corrige le journal')
+  expect(
+    summarizePrompt(
+      '<command-name>/reflect-queue</command-name><command-message>reflect-queue</command-message><command-args></command-args><local-command-stdout>raccourcis+reflect-mod: 1 en attente</local-command-stdout>',
+    ),
+  ).toBe('Commandes lancées : /reflect-queue')
+  expect(summarizePrompt('<command-name>/cout</command-name><local-command-stdout>compteur-tokens+raccourcis: Total</local-command-stdout>\nComment montrer cela')).toBe(
+    'Comment montrer cela',
+  )
+  expect(summarizePrompt('etude-de-cas+raccourcis: - Durée : 6 min\n- Tours : 2')).toBe('Sortie de commandes collée')
+  expect(summarizePrompt('Stop hook feedback:\n[~/.claude/stop-hook-git-check.sh]: There are uncommitted changes')).toBe('Vérification de fin de tour')
+})
