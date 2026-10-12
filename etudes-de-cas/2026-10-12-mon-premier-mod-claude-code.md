@@ -24,10 +24,11 @@ Les essais en conditions réelles ont révélé plusieurs défauts, corrigés un
 Claude Code (session cloud, depuis l’iPad), TypeScript, l’API des mods (hooks, état partagé, appel à Haiku), les tests de `claude plugin test`, Git et GitHub (branche, pull request en brouillon).
 
 **Résultat**
-- Un mod complet, `etude-de-cas`, couvert par 18 tests automatiques.
+- Un mod complet, `etude-de-cas`, couvert par 21 tests automatiques.
 - Deux mods existants améliorés : `compteur-tokens` (publication du coût, 7 tests) et `journal` (fin de la boucle, 11 tests).
+- Un troisième mod, `commandes`, qui liste les commandes de mes mods directement dans Claude Code (9 tests).
 - Une pull request en brouillon, qui passe la validation et tous les tests.
-- Coût estimé de la session : environ 3,50 $ en équivalent API, mesuré par `compteur-tokens`.
+- Coût estimé de la session : 6,27 $ en équivalent API (dernier `/cout`). Tout sur Opus aurait coûté 13,87 $ : l'économie est de 7,60 $, soit environ 55 %.
 
 **Ce que j’en retiens**
 Se faire interviewer avant de construire fait gagner du temps : le projet choisi correspondait à un vrai besoin. Les tests automatiques ne suffisent pas : c’est l’essai réel sur l’iPad qui a montré les défauts de titre et de commits. Enfin, deux automatisations qui se déclenchent l’une l’autre peuvent tourner en boucle : il faut toujours prévoir un cas d’arrêt.
@@ -37,7 +38,7 @@ Se faire interviewer avant de construire fait gagner du temps : le projet choisi
 ## Annexe chiffrée
 
 - Durée de construction : environ 30 minutes, du lancement (vers 03:00 UTC) à la dernière correction (vers 03:35 UTC)
-- Coût estimé (équivalent API) : environ 3,50 $ pour environ 17 millions de tokens (mesure de `compteur-tokens` en fin de session)
-- Tests automatiques : 18 (`etude-de-cas`), 7 (`compteur-tokens`), 11 (`journal`)
+- Coût estimé (équivalent API) : 6,27 $ au dernier `/cout`, pour environ 26 millions de tokens d'entrée (dont environ 95 % en cache) et 137 000 de sortie
+- Tests automatiques : 21 (`etude-de-cas`), 9 (`commandes`), 7 (`compteur-tokens`), 11 (`journal`), soit 48
 - Commits de travail : 6, plus des entrées de journal
 - Pull request : « Nouveau mod etude-de-cas : fiche portfolio anonymisée de la session » (brouillon)
