@@ -15,3 +15,8 @@ Les entrées les plus récentes sont en bas. `/journal` affiche les dernières.
 
 - Commit
 - Push
+
+## 2026-10-12 05:18 — Ajoute le coût de la session à la fiche
+
+- Commit
+- Push
