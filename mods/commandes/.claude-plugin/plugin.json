@@ -1,0 +1,8 @@
+{
+  "name": "commandes",
+  "version": "0.1.0",
+  "description": "Commandes : /commandes liste les commandes de tes mods (toujours à jour), donne le détail d'un mod ou cherche une commande par mot",
+  "author": {
+    "name": "Cyril"
+  }
+}

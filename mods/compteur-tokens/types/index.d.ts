@@ -12,6 +12,7 @@ declare module 'claude-code' {
       totals: Record<string, ModelTotals>
       alertAt: number
       alerted: boolean
+      cost: number
     }
   }
 }

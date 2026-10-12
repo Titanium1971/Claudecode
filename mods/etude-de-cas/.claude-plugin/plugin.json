@@ -1,0 +1,9 @@
+{
+  "name": "etude-de-cas",
+  "version": "0.1.0",
+  "description": "Étude de cas : transforme la session en fiche portfolio anonymisée (faits, chiffres, récit rédigé par Haiku), rangée dans etudes-de-cas/",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "Cyril"
+  }
+}

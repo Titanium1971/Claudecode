@@ -1,0 +1,413 @@
+import { atom, read, update } from 'claude-code'
+import type { EngineInterface, Register } from 'claude-code'
+
+import type { AnonymiseRules, CaseFacts, Spend } from '../types'
+
+const DIR = 'etudes-de-cas'
+const RULES_FILE = `${DIR}/anonymiser.json`
+const COMMAND = 'etude-de-cas'
+const FILES_MAX = 40
+const TOOLS_SHOWN = 10
+const TITLE_MAX = 80
+
+const facts = atom({ plugin: 'etude-de-cas', key: 'facts' } as const, null as CaseFacts | null)
+// Les valeurs que publie le mod compteur-tokens, lues seulement.
+const counterCost = { plugin: 'compteur-tokens', key: 'cost' } as const
+const counterTotals = { plugin: 'compteur-tokens', key: 'totals' } as const
+
+// ---------- Faits : ce que la session a fait, sans rien recopier du contenu ----------
+
+export function emptyFacts(now: number): CaseFacts {
+  return {
+    startedAt: now,
+    firstPrompt: '',
+    turns: 0,
+    errors: 0,
+    tools: {},
+    files: [],
+    tasks: [],
+    tasksDone: 0,
+    commits: [],
+    pushes: 0,
+    pullRequests: [],
+    suggested: false,
+  }
+}
+
+const text = (value: unknown): string => (typeof value === 'string' ? value : '')
+
+// « git commit » ou « git push » lancés comme commande (début, après &&, ;, || ou un retour à la ligne),
+// pas cités dans le texte d'un script.
+const GIT_COMMIT = /(?:^|&&|;|\|\||\n)\s*git\s+(?:-C\s+\S+\s+)?commit\b/
+const GIT_PUSH = /(?:^|&&|;|\|\||\n)\s*git\s+(?:-C\s+\S+\s+)?push\b/
+
+// Un vrai message de la personne : pas une commande /nom, ni la sortie d'un mod (« plugin+autre: … »).
+export function isRealPrompt(text: string): boolean {
+  const t = text.trim()
+
+  return t !== '' && !t.startsWith('/') && !t.startsWith('<') && !/^[a-z0-9-]+(\+[a-z0-9-]+)*: /.test(t)
+}
+
+// Le titre d'un commit : la première ligne du message, qu'il soit donné par -m ou par un here-doc.
+export function commitTitle(command: string): string {
+  const start = command.search(GIT_COMMIT)
+  const part = start === -1 ? command : command.slice(start)
+  const heredoc = /<<-?\s*'?(\w+)'?\n([\s\S]*)/.exec(part)
+  const quoted = /-m\s+"([^"]*)"|-m\s+'([^']*)'/.exec(part)
+  const raw = heredoc?.[2] ?? quoted?.[1] ?? quoted?.[2] ?? ''
+  const first = raw.split('\n').map(line => line.trim()).find(line => line !== '') ?? ''
+
+  return first.replace(/\s+/g, ' ').slice(0, TITLE_MAX) || 'commit'
+}
+
+export function recordCall(f: CaseFacts, e: Record<string, unknown>, isError: boolean): CaseFacts {
+  const tool = text(e.tool)
+  const next: CaseFacts = {
+    ...f,
+    tools: { ...f.tools, [tool]: (f.tools[tool] ?? 0) + 1 },
+    errors: f.errors + (isError ? 1 : 0),
+  }
+
+  if ((tool === 'Write' || tool === 'Edit') && text(e.file_path) !== '' && !f.files.includes(text(e.file_path))) {
+    next.files = [...f.files, text(e.file_path)].slice(-FILES_MAX)
+  }
+  if (tool === 'TaskCreate' && text(e.subject) !== '') {
+    next.tasks = [...f.tasks, text(e.subject)]
+  }
+  if (tool === 'TaskUpdate' && e.status === 'completed' && !isError) {
+    next.tasksDone = Math.min(f.tasksDone + 1, next.tasks.length)
+  }
+  if (tool === 'Bash' && !isError) {
+    const command = text(e.command)
+    if (GIT_COMMIT.test(command)) {
+      next.commits = [...f.commits, commitTitle(command)]
+    }
+    if (GIT_PUSH.test(command)) {
+      next.pushes = f.pushes + 1
+    }
+  }
+  if (/create_pull_request$/.test(tool) && !isError && text(e.title) !== '') {
+    next.pullRequests = [...f.pullRequests, text(e.title).slice(0, TITLE_MAX)]
+  }
+
+  return next
+}
+
+export function minutesSince(startedAt: number, now: number): number {
+  return Math.max(1, Math.round((now - startedAt) / 60_000))
+}
+
+// ---------- Anonymisation : tout passe par là avant d'écrire ou d'envoyer ----------
+
+const SECRETS: readonly RegExp[] = [
+  /\b(sk|pk|rk)-[A-Za-z0-9_-]{8,}/g,
+  /\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{10,}/g,
+  /\bgithub_pat_[A-Za-z0-9_]{10,}/g,
+  /\bxox[abpr]-[A-Za-z0-9-]{8,}/g,
+  /\bAKIA[0-9A-Z]{12,}/g,
+  /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}(\.[A-Za-z0-9_-]+)?/g,
+]
+const ASSIGNED = /\b(api[_ -]?key|token|secret|password|mot de passe|mdp)(\s*[:=]\s*)("[^"]*"|'[^']*'|\S+)/gi
+const EMAIL = /[\w.+-]+@[\w-]+(\.[\w-]+)+/g
+const IPV4 = /\b\d{1,3}(\.\d{1,3}){3}\b/g
+const HOME = /\/(home|Users)\/[^/\s]+|\/root\b/g
+
+const escape = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+export function parseRules(raw: string): AnonymiseRules {
+  try {
+    const data = JSON.parse(raw) as Partial<Record<keyof AnonymiseRules, unknown>>
+    const list = (value: unknown): string[] =>
+      Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.length >= 2) : []
+
+    return { names: list(data.names), domains: list(data.domains) }
+  } catch {
+    return { names: [], domains: [] }
+  }
+}
+
+export function anonymise(input: string, rules: AnonymiseRules): string {
+  let out = input
+  for (const pattern of SECRETS) {
+    out = out.replace(pattern, '[clé]')
+  }
+  out = out.replace(ASSIGNED, (_, label: string, sep: string) => `${label}${sep}[clé]`)
+  out = out.replace(EMAIL, '[e-mail]').replace(IPV4, '[ip]').replace(HOME, '~')
+  for (const domain of rules.domains) {
+    out = out.replace(new RegExp(escape(domain), 'gi'), '[domaine]')
+  }
+  for (const name of rules.names) {
+    out = out.replace(new RegExp(`(?<![\\p{L}\\p{N}])${escape(name)}(?![\\p{L}\\p{N}])`, 'giu'), '[client]')
+  }
+
+  return out
+}
+
+// ---------- Mise en forme ----------
+
+export function slugify(title: string): string {
+  const slug = title
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return slug.slice(0, 50) || 'etude'
+}
+
+export function money(spend: Spend | undefined): string {
+  if (spend === undefined) {
+    return '- Coût estimé : non disponible (il faut le mod compteur-tokens)'
+  }
+  const cost = `${spend.cost.toFixed(spend.cost < 1 ? 3 : 2).replace('.', ',')} $`
+  const tokens = `${String(Math.round(spend.tokens / 1000)).replace(/\B(?=(\d{3})+$)/g, ' ')} k`
+
+  return `- Coût estimé (équivalent API) : ${cost} pour ${tokens} tokens`
+}
+
+// Ce que Git a vu depuis le début de la session : les commits (titres) et les fichiers touchés.
+// JOURNAL.md est la tenue du journal, pas du travail : ni lui ni les commits qui ne touchent que lui.
+export type GitWork = { commits: string[]; files: string[] }
+
+const NOISE = 'JOURNAL.md'
+
+export function parseGit(log: string, status: string): GitWork {
+  const commits: string[] = []
+  const files = new Set<string>()
+  let subject: string | undefined
+  let touched = false
+  const close = (): void => {
+    if (subject !== undefined && touched) {
+      commits.push(subject.replace(/\s+/g, ' ').slice(0, TITLE_MAX))
+    }
+  }
+  for (const line of log.split('\n')) {
+    if (line.startsWith('\u0001')) {
+      close()
+      subject = line.slice(1).trim()
+      touched = false
+    } else if (line.trim() !== '' && line.trim() !== NOISE) {
+      files.add(line.trim())
+      touched = true
+    }
+  }
+  close()
+  for (const line of status.split('\n')) {
+    const path = line.slice(3).trim()
+    if (line.length > 3 && path !== NOISE) {
+      files.add(path.replace(/^.* -> /, ''))
+    }
+  }
+
+  return { commits, files: [...files] }
+}
+
+const FILES_SHOWN = 30
+
+export function annex(f: CaseFacts, now: number, spend?: Spend, git?: GitWork): string {
+  const files = git?.files ?? f.files
+  const commits = git?.commits ?? f.commits
+  const shownFiles = files.slice(0, FILES_SHOWN).map(file => `\`${file}\``).join(', ') || 'aucun'
+  const moreFiles = files.length > FILES_SHOWN ? ` … (+${files.length - FILES_SHOWN})` : ''
+  const actions = Object.values(f.tools).reduce((sum, count) => sum + count, 0)
+  const tools = Object.entries(f.tools)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, TOOLS_SHOWN)
+    .map(([name, count]) => `${name} (${count})`)
+  const lines = [
+    `- Durée : ${minutesSince(f.startedAt, now)} min`,
+    `- Tours : ${f.turns} · actions : ${actions} · erreurs : ${f.errors}`,
+    money(spend),
+    `- Outils les plus utilisés : ${tools.join(', ') || 'aucun'}`,
+    `- Tâches : ${f.tasksDone}/${f.tasks.length} terminées`,
+    ...f.tasks.map(task => `  - ${task}`),
+    `- Fichiers modifiés (${files.length}) : ${shownFiles}${moreFiles}`,
+    `- Commits : ${commits.length}`,
+    ...commits.map(commit => `  - ${commit}`),
+    `- Envois sur GitHub (push) : ${f.pushes}`,
+    `- Pull requests : ${f.pullRequests.length ? f.pullRequests.join(' ; ') : 'aucune'}`,
+  ]
+
+  return lines.join('\n')
+}
+
+const RUBRIC = [
+  'Tu rédiges une étude de cas portfolio en français, à partir des faits fournis seulement.',
+  'Structure : Contexte, Problème, Solution, Outils, Résultat, Ce que j’en retiens.',
+  'Ne rien inventer : si un fait manque, ne pas le combler. Les noms de clients sont déjà remplacés par [client] :',
+  'ne commente pas l’anonymisation. Environ 250 mots, ton clair, phrases courtes, sans jargon inutile.',
+  'Réponds uniquement avec ces six parties, chacune avec son titre en gras : pas de titre général,',
+  'pas de remarque sur les faits, pas de section en plus.',
+].join(' ')
+
+export function brief(f: CaseFacts, factsText: string): string {
+  return [
+    f.firstPrompt ? `Demande de départ : ${f.firstPrompt}` : 'Demande de départ : non précisée',
+    '',
+    'Faits de la session :',
+    factsText,
+  ].join('\n')
+}
+
+export function fileName(title: string, now: number): string {
+  return `${DIR}/${new Date(now).toISOString().slice(0, 10)}-${slugify(title)}.md`
+}
+
+// ---------- Le module ----------
+
+export const register: Register = on => {
+  on('session.start', async ($, e, next) => {
+    const now = await $.clock.now()
+    await update($, facts, f => f ?? emptyFacts(now))
+    await $.command.register({
+      name: COMMAND,
+      description: 'Écrit une étude de cas anonymisée de la session (etudes-de-cas/). /etude-de-cas apercu montre les faits sans écrire.',
+    })
+
+    return next(e)
+  })
+
+  on('turn.start', async ($, e, next) => {
+    const now = await $.clock.now()
+    await update($, facts, f => {
+      const base = f ?? emptyFacts(now)
+
+      return base.firstPrompt === '' && isRealPrompt(e.text) ? { ...base, firstPrompt: e.text.trim().slice(0, 200) } : base
+    })
+
+    return next(e)
+  })
+
+  on('turn.complete', async ($, e, next) => {
+    const now = await $.clock.now()
+    await update($, facts, f => ({ ...(f ?? emptyFacts(now)), turns: (f?.turns ?? 0) + 1 }))
+
+    return next(e)
+  })
+
+  on('tool.call', async ($, e, next) => {
+    const r = await next(e)
+    const isError = r.deny !== undefined || r.isError === true
+    const now = await $.clock.now()
+    await update($, facts, f => recordCall(f ?? emptyFacts(now), e as unknown as Record<string, unknown>, isError))
+
+    const current = await read($, facts)
+    const finished = current !== null && current.tasks.length > 0 && current.tasksDone >= current.tasks.length
+    const opened = current !== null && current.pullRequests.length > 0
+    if (current !== null && !current.suggested && (finished || opened)) {
+      await update($, facts, f => (f ? { ...f, suggested: true } : f))
+      $.ui.toast(`Cette session peut devenir une étude de cas : tape /${COMMAND}`)
+    }
+
+    return r
+  }).catch(($, e, next) => next(e))
+
+  on('command.run', { command: COMMAND }, async ($, e) => {
+    const now = await $.clock.now()
+    const current = (await read($, facts)) ?? emptyFacts(now)
+    const rules = await readRules($)
+    const spend = await readSpend($)
+    const git = await readGit($, current.startedAt)
+    const title = e.args.trim()
+
+    if (title === 'apercu') {
+      return { text: anonymise(annex(current, now, spend, git), rules) }
+    }
+
+    const factsText = anonymise(annex(current, now, spend, git), rules)
+    const story = await tell($, current, factsText, rules)
+    const heading = title || anonymise(current.firstPrompt, rules).slice(0, TITLE_MAX) || 'Étude de cas'
+    const body = [
+      `# ${heading}`,
+      '',
+      `_Écrit le ${new Date(now).toISOString().slice(0, 10)} à partir d’une session, anonymisé._`,
+      '',
+      story,
+      '',
+      '---',
+      '',
+      '## Annexe chiffrée',
+      '',
+      factsText,
+      '',
+    ].join('\n')
+
+    const path = await freePath($, fileName(heading, now), now)
+    try {
+      await $.fs.write(path, body)
+    } catch (error) {
+      return { text: `Étude de cas non écrite : ${error instanceof Error ? error.message : String(error)}` }
+    }
+
+    return { text: `Étude de cas écrite : ${path}` }
+  }).catch(() => ({ text: 'Étude de cas : erreur pendant la rédaction, rien n’a été écrit.' }))
+}
+
+async function readRules($: EngineInterface): Promise<AnonymiseRules> {
+  try {
+    return parseRules(await $.fs.read(RULES_FILE))
+  } catch {
+    return { names: [], domains: [] }
+  }
+}
+
+// Ne jamais écraser une fiche existante (peut-être retouchée à la main) : -2, -3… au besoin.
+async function freePath($: EngineInterface, wanted: string, now: number): Promise<string> {
+  for (let n = 1; n <= 50; n += 1) {
+    const path = n === 1 ? wanted : wanted.replace(/\.md$/, `-${n}.md`)
+    try {
+      await $.fs.read(path)
+    } catch {
+      return path
+    }
+  }
+
+  return wanted.replace(/\.md$/, `-${now}.md`)
+}
+
+async function readGit($: EngineInterface, startedAt: number): Promise<GitWork | undefined> {
+  try {
+    const since = `--since=${new Date(startedAt).toISOString()}`
+    const log = await $.process.run(['git', 'log', since, '--no-merges', '--name-only', '--pretty=format:%x01%s'], { timeoutMs: 5000 })
+    const status = await $.process.run(['git', 'status', '--porcelain'], { timeoutMs: 5000 })
+    if (log.exitCode !== 0 || status.exitCode !== 0) {
+      return undefined
+    }
+
+    return parseGit(log.stdout, status.stdout)
+  } catch {
+    return undefined
+  }
+}
+
+async function readSpend($: EngineInterface): Promise<Spend | undefined> {
+  try {
+    const cost = (await $.state.get(counterCost)).value
+    const totals = (await $.state.get(counterTotals)).value ?? {}
+    if (typeof cost !== 'number') {
+      return undefined
+    }
+    const tokens = Object.values(totals).reduce((sum, t) => sum + t.input + t.output + t.cacheRead + t.cacheWrite, 0)
+
+    return { cost, tokens }
+  } catch {
+    return undefined
+  }
+}
+
+async function tell($: EngineInterface, f: CaseFacts, factsText: string, rules: AnonymiseRules): Promise<string> {
+  const answer = await $.model.complete({
+    model: 'haiku',
+    system: RUBRIC,
+    prompt: anonymise(brief(f, factsText), rules),
+    maxTokens: 1200,
+    effort: 'low',
+    timeoutMs: 60_000,
+  })
+  if (answer.isAnswered && answer.text.trim() !== '') {
+    return anonymise(answer.text.trim(), rules)
+  }
+
+  return 'Le récit n’a pas pu être rédigé : seule l’annexe chiffrée est écrite.'
+}
