@@ -2,7 +2,7 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
-import { annex, anonymise, emptyFacts, fileName, money, parseRules, recordCall, slugify } from '../hooks/register'
+import { annex, anonymise, commitTitle, emptyFacts, fileName, money, parseRules, recordCall, slugify } from '../hooks/register'
 
 // 11 octobre 2026, 14 h 32 UTC.
 const NOW = Date.UTC(2026, 9, 11, 14, 32)
@@ -202,4 +202,13 @@ test('avec compteur-tokens, l’annexe reprend son coût et ses tokens', async (
 
   const body = world.files.get('etudes-de-cas/2026-10-11-avec-cout.md') ?? ''
   expect(body.includes('- Coût estimé (équivalent API) : 0,412 $ pour 1 234 k tokens')).toBe(true)
+})
+
+// ---------- Titres de commit ----------
+
+test('commitTitle prend la première ligne, avec -m ou avec un here-doc', async () => {
+  expect(commitTitle('git commit -q -m "Ajoute le mod\n\nDétail long"')).toBe('Ajoute le mod')
+  expect(commitTitle("git commit -m 'un titre'")).toBe('un titre')
+  expect(commitTitle(`git commit -q -m "$(cat <<'EOF'\nJournal : entrée\n\nSession : https://x\nEOF\n)"`)).toBe('Journal : entrée')
+  expect(commitTitle('git commit --amend --no-edit')).toBe('commit')
 })

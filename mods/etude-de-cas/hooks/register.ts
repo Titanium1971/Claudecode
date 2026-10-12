@@ -36,6 +36,16 @@ export function emptyFacts(now: number): CaseFacts {
 
 const text = (value: unknown): string => (typeof value === 'string' ? value : '')
 
+// Le titre d'un commit : la première ligne du message, qu'il soit donné par -m ou par un here-doc.
+export function commitTitle(command: string): string {
+  const heredoc = /<<-?\s*'?(\w+)'?\n([\s\S]*)/.exec(command)
+  const quoted = /-m\s+"([^"]*)"|-m\s+'([^']*)'/.exec(command)
+  const raw = heredoc?.[2] ?? quoted?.[1] ?? quoted?.[2] ?? ''
+  const first = raw.split('\n').map(line => line.trim()).find(line => line !== '') ?? ''
+
+  return first.replace(/\s+/g, ' ').slice(0, TITLE_MAX) || 'commit'
+}
+
 export function recordCall(f: CaseFacts, e: Record<string, unknown>, isError: boolean): CaseFacts {
   const tool = text(e.tool)
   const next: CaseFacts = {
@@ -56,8 +66,7 @@ export function recordCall(f: CaseFacts, e: Record<string, unknown>, isError: bo
   if (tool === 'Bash' && !isError) {
     const command = text(e.command)
     if (/\bgit commit\b/.test(command)) {
-      const message = /-m\s+["']([^"']+)["']/.exec(command)?.[1] ?? 'commit'
-      next.commits = [...f.commits, message.slice(0, TITLE_MAX)]
+      next.commits = [...f.commits, commitTitle(command)]
     }
     if (/\bgit push\b/.test(command)) {
       next.pushes = f.pushes + 1
