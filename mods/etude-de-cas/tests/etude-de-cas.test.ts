@@ -243,3 +243,13 @@ test('le titre par défaut vient du premier vrai message, pas d’une sortie de 
   expect(text).toBe('Étude de cas écrite : etudes-de-cas/2026-10-11-automatise-mes-relances-clients.md')
   expect(world.files.size).toBe(1)
 })
+
+test('une fiche existante n’est jamais écrasée : la nouvelle prend -2', async ($, on) => {
+  const world = bottom(on, { 'etudes-de-cas/2026-10-11-titre-test.md': 'retouchée à la main' })
+
+  await turn($, 'Session', async () => {})
+  const { text } = await $.command.run({ command: 'etude-de-cas', args: 'Titre test' } as never)
+
+  expect(text).toBe('Étude de cas écrite : etudes-de-cas/2026-10-11-titre-test-2.md')
+  expect(world.files.get('etudes-de-cas/2026-10-11-titre-test.md')).toBe('retouchée à la main')
+})

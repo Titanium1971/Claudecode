@@ -287,7 +287,7 @@ export const register: Register = on => {
       '',
     ].join('\n')
 
-    const path = fileName(heading, now)
+    const path = await freePath($, fileName(heading, now), now)
     try {
       await $.fs.write(path, body)
     } catch (error) {
@@ -304,6 +304,20 @@ async function readRules($: EngineInterface): Promise<AnonymiseRules> {
   } catch {
     return { names: [], domains: [] }
   }
+}
+
+// Ne jamais écraser une fiche existante (peut-être retouchée à la main) : -2, -3… au besoin.
+async function freePath($: EngineInterface, wanted: string, now: number): Promise<string> {
+  for (let n = 1; n <= 50; n += 1) {
+    const path = n === 1 ? wanted : wanted.replace(/\.md$/, `-${n}.md`)
+    try {
+      await $.fs.read(path)
+    } catch {
+      return path
+    }
+  }
+
+  return wanted.replace(/\.md$/, `-${now}.md`)
 }
 
 async function readSpend($: EngineInterface): Promise<Spend | undefined> {
