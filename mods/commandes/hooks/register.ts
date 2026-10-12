@@ -2,6 +2,8 @@ import type { CommandInfo, Register } from 'claude-code'
 
 const COMMAND = 'commandes'
 const COLLAPSE_AT = 8
+// Ce qui n'est pas un mod : les connecteurs (serveurs MCP) et les commandes perso de l'utilisateur.
+const NOT_MODS = new Set(['connecteurs', 'perso'])
 const DESCRIPTION_MAX = 160
 
 // Sans accents ni majuscules : « coût » trouve « cout ».
@@ -37,8 +39,9 @@ const oneLine = (text: string): string => {
 const commandLine = (command: CommandInfo): string => `- /${command.name} : ${oneLine(command.description) || 'pas de description'}`
 
 function overview(all: readonly Group[], hasPluginCommand: boolean): string {
-  const total = all.reduce((sum, group) => sum + group.commands.length, 0)
-  const lines = [`Commandes ajoutées par les mods : ${total} commandes, ${all.length} mods.`, '']
+  const mods = all.filter(group => !NOT_MODS.has(group.owner))
+  const total = mods.reduce((sum, group) => sum + group.commands.length, 0)
+  const lines = [`Commandes de tes mods : ${total} commandes, ${mods.length} mods.`, '']
   for (const group of all) {
     lines.push(
       group.commands.length <= COLLAPSE_AT

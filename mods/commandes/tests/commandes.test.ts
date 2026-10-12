@@ -36,7 +36,7 @@ test('groups range par mod, trie, et laisse de côté les commandes intégrées'
 test('la vue d’ensemble liste les mods, et replie les gros groupes', async () => {
   const text = render(LIST, '')
 
-  expect(text.startsWith('Commandes ajoutées par les mods : 14 commandes, 4 mods.')).toBe(true)
+  expect(text.startsWith('Commandes de tes mods : 13 commandes, 3 mods.')).toBe(true)
   expect(text.includes('- tableau-de-bord : /dashboard, /taches')).toBe(true)
   expect(text.includes('- anthropic-skills (10 commandes) : /commandes anthropic-skills pour le détail')).toBe(true)
   expect(text.includes('/help')).toBe(true)
@@ -70,4 +70,13 @@ test('/commandes de bout en bout : lit la liste du moteur', async ($, on) => {
   const { text } = await $.command.run({ command: 'commandes', args: 'cout' } as never)
 
   expect(text).toBe('1 commande pour « cout » :\n- /cout : Tokens et coût estimé de la session')
+})
+
+test('le compteur ne compte que les mods : connecteurs et commandes perso à part', async () => {
+  const withPerso = [...LIST, command('maison', 'Commande perso', undefined, 'user')]
+  const text = render(withPerso, '')
+
+  expect(text.startsWith('Commandes de tes mods : 13 commandes, 3 mods.')).toBe(true)
+  expect(text.includes('- perso : /maison')).toBe(true)
+  expect(text.includes('- connecteurs : /mon-prompt')).toBe(true)
 })
