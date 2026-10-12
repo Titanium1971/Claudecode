@@ -61,6 +61,11 @@
       "description": "Journal de bord : après chaque demande qui a changé quelque chose, ajoute une entrée courte à JOURNAL.md (date, demande, fichiers modifiés, commits, PR) pour reprendre le travail sur un autre appareil"
     },
     {
+      "name": "etude-de-cas",
+      "source": "./mods/etude-de-cas",
+      "description": "Étude de cas : transforme la session en fiche portfolio anonymisée (faits, chiffres, récit rédigé par Haiku) rangée dans etudes-de-cas/"
+    },
+    {
       "name": "lecture-ciblee",
       "source": "./mods/lecture-ciblee",
       "description": "Lecture ciblée : empêche Claude de lire un très gros fichier en entier et l'oriente vers Grep puis une lecture du seul passage utile, pour économiser des tokens"

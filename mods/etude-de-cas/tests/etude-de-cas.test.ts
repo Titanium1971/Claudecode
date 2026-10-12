@@ -1,0 +1,167 @@
+import type { On } from 'claude-code'
+import { expect, mock, test } from 'claude-code/testing'
+import type { Engine } from 'claude-code/testing'
+
+import { annex, anonymise, emptyFacts, fileName, parseRules, recordCall, slugify } from '../hooks/register'
+
+// 11 octobre 2026, 14 h 32 UTC.
+const NOW = Date.UTC(2026, 9, 11, 14, 32)
+const RULES = JSON.stringify({ names: ['Dupont SA'], domains: ['dupont.fr'] })
+
+type World = { files: Map<string, string>; models: number }
+
+// Le moteur résout les chemins relatifs dans le dossier du mod : on range les fichiers à partir de etudes-de-cas/.
+const inRepo = (path: string): string => path.slice(path.indexOf('etudes-de-cas/'))
+
+function bottom(on: On, files: Record<string, string> = {}, answer: Record<string, unknown> = { isAnswered: true, text: 'Le récit de [client].' }): World {
+  const world: World = { files: new Map(Object.entries(files)), models: 0 }
+  mock.clock(on, { now: NOW })
+  mock.store(on)
+  on('fs.read', ($, e) => {
+    const text = world.files.get(inRepo(e.path))
+
+    return text === undefined ? { deny: `ENOENT: ${e.path}` } : { value: text }
+  })
+  on('fs.write', ($, e) => {
+    world.files.set(inRepo(e.path), e.text)
+
+    return { value: undefined }
+  })
+  on('model.complete', () => {
+    world.models += 1
+
+    return { value: { ...answer, usage: { input: 10, output: 10 } } as never }
+  })
+  on('turn.start', ($, e) => ({ turnId: e.turnId }))
+  on('turn.complete', ($, e) => ({ text: e.answer }))
+  on('tool.call', () => ({ result: {} as never }))
+
+  return world
+}
+
+async function turn($: Engine, text: string, body: () => Promise<void>): Promise<void> {
+  await $.turn.start({ text, turnId: 't' } as never)
+  await body()
+  await $.turn.complete({ answer: 'fini', durationMs: 10, isAborted: false, turnId: 't', reason: 'answer' } as never)
+}
+
+// ---------- Faits ----------
+
+test('recordCall compte les outils, fichiers, tâches, commits, envois et PR', async () => {
+  let f = emptyFacts(NOW)
+  f = recordCall(f, { tool: 'TaskCreate', subject: 'Écrire le mod' }, false)
+  f = recordCall(f, { tool: 'Write', file_path: 'mods/x/register.ts' }, false)
+  f = recordCall(f, { tool: 'Edit', file_path: 'mods/x/register.ts' }, false)
+  f = recordCall(f, { tool: 'TaskUpdate', status: 'completed' }, false)
+  f = recordCall(f, { tool: 'Bash', command: 'git commit -m "Ajoute le mod"' }, false)
+  f = recordCall(f, { tool: 'Bash', command: 'git push -u origin claude/x' }, false)
+  f = recordCall(f, { tool: 'mcp__github__create_pull_request', title: 'Mod etude-de-cas' }, false)
+  f = recordCall(f, { tool: 'Bash', command: 'npm test' }, true)
+
+  expect(f.tools.Write).toBe(1)
+  expect(f.tools.Edit).toBe(1)
+  expect(f.files).toEqual(['mods/x/register.ts'])
+  expect(f.tasks).toEqual(['Écrire le mod'])
+  expect(f.tasksDone).toBe(1)
+  expect(f.commits).toEqual(['Ajoute le mod'])
+  expect(f.pushes).toBe(1)
+  expect(f.pullRequests).toEqual(['Mod etude-de-cas'])
+  expect(f.errors).toBe(1)
+})
+
+test('un appel en erreur ne compte ni comme commit, ni comme PR, ni comme tâche finie', async () => {
+  let f = emptyFacts(NOW)
+  f = recordCall(f, { tool: 'TaskCreate', subject: 'Tâche' }, false)
+  f = recordCall(f, { tool: 'TaskUpdate', status: 'completed' }, true)
+  f = recordCall(f, { tool: 'Bash', command: 'git commit -m "raté"' }, true)
+  f = recordCall(f, { tool: 'mcp__github__create_pull_request', title: 'raté' }, true)
+
+  expect(f.tasksDone).toBe(0)
+  expect(f.commits).toEqual([])
+  expect(f.pullRequests).toEqual([])
+})
+
+test('annexe chiffrée : durée, actions, outils et tâches', async () => {
+  const f = {
+    ...emptyFacts(NOW),
+    tools: { Bash: 3, Write: 1 },
+    tasks: ['A', 'B'],
+    tasksDone: 1,
+  }
+  const text = annex(f, NOW + 12 * 60_000)
+
+  expect(text.includes('- Durée : 12 min')).toBe(true)
+  expect(text.includes('actions : 4')).toBe(true)
+  expect(text.includes('Bash (3), Write (1)')).toBe(true)
+  expect(text.includes('Tâches : 1/2 terminées')).toBe(true)
+})
+
+// ---------- Anonymisation ----------
+
+test('anonymise e-mails, clés, noms, domaines, IP et chemins personnels', async () => {
+  const rules = parseRules(RULES)
+  const out = anonymise(
+    'Mail jean@dupont.fr, client Dupont SA, clé sk-abcdefgh1234, token: abc123 ; IP 10.0.0.12 ; dossier /home/cyril/projet',
+    rules,
+  )
+
+  expect(out).toBe('Mail [e-mail], client [client], clé [clé], token: [clé] ; IP [ip] ; dossier ~/projet')
+})
+
+test('parseRules ignore un fichier illisible ou mal formé', async () => {
+  expect(parseRules('pas du json')).toEqual({ names: [], domains: [] })
+  expect(parseRules(JSON.stringify({ names: ['A', 3, 'Dupont SA'] }))).toEqual({ names: ['Dupont SA'], domains: [] })
+})
+
+test('slugify retire les accents et la ponctuation', async () => {
+  expect(slugify('Étude de cas : Dupont!')).toBe('etude-de-cas-dupont')
+  expect(slugify('!!!')).toBe('etude')
+})
+
+test('fileName range la fiche dans etudes-de-cas/ avec la date', async () => {
+  expect(fileName('Mon projet', NOW)).toBe('etudes-de-cas/2026-10-11-mon-projet.md')
+})
+
+// ---------- La commande, de bout en bout ----------
+
+test('/etude-de-cas écrit une fiche anonymisée, rédigée par Haiku', async ($, on) => {
+  const world = bottom(on, { 'etudes-de-cas/anonymiser.json': RULES })
+
+  await turn($, 'Crée la fiche pour Dupont SA', async () => {
+    await $.tool.call({ tool: 'Bash', command: 'git commit -m "Ajoute la fiche"' } as never)
+  })
+
+  const { text } = await $.command.run({ command: 'etude-de-cas', args: '' } as never)
+  const path = 'etudes-de-cas/2026-10-11-cree-la-fiche-pour-client.md'
+
+  expect(text).toBe(`Étude de cas écrite : ${path}`)
+  expect(world.models).toBe(1)
+  const body = world.files.get(path) ?? ''
+  expect(body.startsWith('# Crée la fiche pour [client]\n')).toBe(true)
+  expect(body.includes('Le récit de [client].')).toBe(true)
+  expect(body.includes('## Annexe chiffrée')).toBe(true)
+  expect(body.includes('- Commits : 1')).toBe(true)
+  expect(body.includes('Dupont')).toBe(false)
+})
+
+test('si Haiku ne répond pas, la fiche ne contient que l’annexe', async ($, on) => {
+  const world = bottom(on, { 'etudes-de-cas/anonymiser.json': RULES }, { isAnswered: false, reason: 'error' })
+
+  await turn($, 'Une session simple', async () => {})
+  await $.command.run({ command: 'etude-de-cas', args: 'Titre test' } as never)
+
+  const body = world.files.get('etudes-de-cas/2026-10-11-titre-test.md') ?? ''
+  expect(body.includes('seule l’annexe chiffrée est écrite')).toBe(true)
+  expect(body.includes('## Annexe chiffrée')).toBe(true)
+})
+
+test('/etude-de-cas apercu montre les faits sans appeler le modèle ni écrire', async ($, on) => {
+  const world = bottom(on, { 'etudes-de-cas/anonymiser.json': RULES })
+
+  await turn($, 'Session de test', async () => {})
+  const { text } = await $.command.run({ command: 'etude-de-cas', args: 'apercu' } as never)
+
+  expect((text ?? '').includes('- Tours : 1')).toBe(true)
+  expect(world.models).toBe(0)
+  expect(world.files.size).toBe(1)
+})
