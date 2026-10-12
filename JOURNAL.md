@@ -52,3 +52,8 @@ Les entrées les plus récentes sont en bas. `/journal` affiche les dernières.
 - Fichiers modifiés : `mods/commandes/tests/commandes.test.ts`
 - Commit
 - Push
+
+## 2026-10-12 05:54 — Comment montrer cela dans le portfolio
+
+- Commit
+- Push
