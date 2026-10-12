@@ -41,3 +41,8 @@ Les entrées les plus récentes sont en bas. `/journal` affiche les dernières.
 - Fichiers modifiés : `etudes-de-cas/2026-10-12-mon-premier-mod-claude-code.md`
 - Commit
 - Push
+
+## 2026-10-12 05:43 — etude-de-cas+raccourcis: - Durée : 23 min • Tours : 6 · actions : 23 · erreurs : 0 • Coût estimé (équivalent API) : 4,4…
+
+- Commit
+- Push
