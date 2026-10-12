@@ -30,6 +30,8 @@ const ALIASES: Record<string, string> = {
 const totals = atom({ plugin: 'compteur-tokens', key: 'totals' } as const, {} as Record<string, ModelTotals>)
 const alertAt = atom({ plugin: 'compteur-tokens', key: 'alertAt' } as const, 5)
 const alerted = atom({ plugin: 'compteur-tokens', key: 'alerted' } as const, false)
+// Le coût total de la session, publié pour les autres mods (etude-de-cas le lit).
+const sessionTotal = atom({ plugin: 'compteur-tokens', key: 'cost' } as const, 0)
 
 function priceOf(model: string): Price {
   for (const [pattern, price] of PRICES) {
@@ -85,6 +87,7 @@ async function record($: EngineInterface, rawModel: string, usage: ModelUsage): 
   })
 
   const cost = sessionCost(await read($, totals))
+  await update($, sessionTotal, () => cost)
   const limit = await read($, alertAt)
   if (limit > 0 && cost >= limit && !(await read($, alerted))) {
     await update($, alerted, () => true)
@@ -217,6 +220,7 @@ export const register: Register = on => {
     const [word, value] = e.args.trim().toLowerCase().split(/\s+/)
     if (word === 'zero') {
       await update($, totals, () => ({}))
+      await update($, sessionTotal, () => 0)
       await update($, alerted, () => false)
 
       return { text: 'Compteur remis à zéro.' }

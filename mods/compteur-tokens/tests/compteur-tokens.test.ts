@@ -60,6 +60,22 @@ test('prévient une seule fois quand la session dépasse le seuil', async ($, on
   expect(toasts[0]?.includes('a dépassé 6,00 $')).toBe(true)
 })
 
+test('publie le coût de la session pour les autres mods', async ($, on) => {
+  const costs: unknown[] = []
+  bottom(on, 'claude-sonnet-5-5', MILLION_IN)
+  on('state.set', ($, e, next) => {
+    if (e.key === 'cost') {
+      costs.push(e.value)
+    }
+
+    return next(e)
+  })
+
+  await step($)
+  await cout($, 'zero')
+  expect(costs).toEqual([2, 0])
+})
+
 test('/cout zero remet le compteur à zéro', async ($, on) => {
   bottom(on, 'claude-opus-5-5', MILLION_IN)
   await step($)

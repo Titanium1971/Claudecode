@@ -10,3 +10,8 @@ Les entrées les plus récentes sont en bas. `/journal` affiche les dernières.
 - Commit
 - Push (branche claude/eager-pascal-coujfg)
 - PR créée « Nouveau mod etude-de-cas : fiche portfolio anonymisée de la session » : https://github.com/Titanium1971/Claudecode/pull/7
+
+## 2026-10-12 05:13 — queued-remote-notifications pending 2 unread notifications (GitHub activity on a subscribed PR: 2) Notifications are qu…
+
+- Commit
+- Push

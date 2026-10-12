@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { AnonymiseRules, CaseFacts } from '../types'
+import type { AnonymiseRules, CaseFacts, Spend } from '../types'
 
 const DIR = 'etudes-de-cas'
 const RULES_FILE = `${DIR}/anonymiser.json`
@@ -11,6 +11,9 @@ const TOOLS_SHOWN = 10
 const TITLE_MAX = 80
 
 const facts = atom({ plugin: 'etude-de-cas', key: 'facts' } as const, null as CaseFacts | null)
+// Les valeurs que publie le mod compteur-tokens, lues seulement.
+const counterCost = { plugin: 'compteur-tokens', key: 'cost' } as const
+const counterTotals = { plugin: 'compteur-tokens', key: 'totals' } as const
 
 // ---------- Faits : ce que la session a fait, sans rien recopier du contenu ----------
 
@@ -130,7 +133,17 @@ export function slugify(title: string): string {
   return slug.slice(0, 50) || 'etude'
 }
 
-export function annex(f: CaseFacts, now: number): string {
+export function money(spend: Spend | undefined): string {
+  if (spend === undefined) {
+    return '- Coût estimé : non disponible (il faut le mod compteur-tokens)'
+  }
+  const cost = `${spend.cost.toFixed(spend.cost < 1 ? 3 : 2).replace('.', ',')} $`
+  const tokens = `${String(Math.round(spend.tokens / 1000)).replace(/\B(?=(\d{3})+$)/g, ' ')} k`
+
+  return `- Coût estimé (équivalent API) : ${cost} pour ${tokens} tokens`
+}
+
+export function annex(f: CaseFacts, now: number, spend?: Spend): string {
   const actions = Object.values(f.tools).reduce((sum, count) => sum + count, 0)
   const tools = Object.entries(f.tools)
     .sort((a, b) => b[1] - a[1])
@@ -139,6 +152,7 @@ export function annex(f: CaseFacts, now: number): string {
   const lines = [
     `- Durée : ${minutesSince(f.startedAt, now)} min`,
     `- Tours : ${f.turns} · actions : ${actions} · erreurs : ${f.errors}`,
+    money(spend),
     `- Outils les plus utilisés : ${tools.join(', ') || 'aucun'}`,
     `- Tâches : ${f.tasksDone}/${f.tasks.length} terminées`,
     ...f.tasks.map(task => `  - ${task}`),
@@ -225,13 +239,14 @@ export const register: Register = on => {
     const now = await $.clock.now()
     const current = (await read($, facts)) ?? emptyFacts(now)
     const rules = await readRules($)
+    const spend = await readSpend($)
     const title = e.args.trim()
 
     if (title === 'apercu') {
-      return { text: anonymise(annex(current, now), rules) }
+      return { text: anonymise(annex(current, now, spend), rules) }
     }
 
-    const factsText = anonymise(annex(current, now), rules)
+    const factsText = anonymise(annex(current, now, spend), rules)
     const story = await tell($, current, factsText, rules)
     const heading = title || anonymise(current.firstPrompt, rules).slice(0, TITLE_MAX) || 'Étude de cas'
     const body = [
@@ -265,6 +280,21 @@ async function readRules($: EngineInterface): Promise<AnonymiseRules> {
     return parseRules(await $.fs.read(RULES_FILE))
   } catch {
     return { names: [], domains: [] }
+  }
+}
+
+async function readSpend($: EngineInterface): Promise<Spend | undefined> {
+  try {
+    const cost = (await $.state.get(counterCost)).value
+    const totals = (await $.state.get(counterTotals)).value ?? {}
+    if (typeof cost !== 'number') {
+      return undefined
+    }
+    const tokens = Object.values(totals).reduce((sum, t) => sum + t.input + t.output + t.cacheRead + t.cacheWrite, 0)
+
+    return { cost, tokens }
+  } catch {
+    return undefined
   }
 }
 

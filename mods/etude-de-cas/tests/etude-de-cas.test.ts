@@ -2,7 +2,7 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
-import { annex, anonymise, emptyFacts, fileName, parseRules, recordCall, slugify } from '../hooks/register'
+import { annex, anonymise, emptyFacts, fileName, money, parseRules, recordCall, slugify } from '../hooks/register'
 
 // 11 octobre 2026, 14 h 32 UTC.
 const NOW = Date.UTC(2026, 9, 11, 14, 32)
@@ -164,4 +164,42 @@ test('/etude-de-cas apercu montre les faits sans appeler le modèle ni écrire',
   expect((text ?? '').includes('- Tours : 1')).toBe(true)
   expect(world.models).toBe(0)
   expect(world.files.size).toBe(1)
+})
+
+// ---------- Le coût, publié par compteur-tokens ----------
+
+test('money met en forme le coût et les tokens, ou dit qu’il manque compteur-tokens', async () => {
+  expect(money({ cost: 0.4123, tokens: 1_234_000 })).toBe('- Coût estimé (équivalent API) : 0,412 $ pour 1 234 k tokens')
+  expect(money({ cost: 12.5, tokens: 40_000 })).toBe('- Coût estimé (équivalent API) : 12,50 $ pour 40 k tokens')
+  expect(money(undefined)).toBe('- Coût estimé : non disponible (il faut le mod compteur-tokens)')
+})
+
+test('sans compteur-tokens, l’annexe dit que le coût n’est pas disponible', async ($, on) => {
+  bottom(on)
+
+  await turn($, 'Session de test', async () => {})
+  const { text } = await $.command.run({ command: 'etude-de-cas', args: 'apercu' } as never)
+
+  expect((text ?? '').includes('- Coût estimé : non disponible')).toBe(true)
+})
+
+test('avec compteur-tokens, l’annexe reprend son coût et ses tokens', async ($, on) => {
+  const world = bottom(on)
+  const counter: Record<string, unknown> = {
+    cost: 0.4123,
+    totals: {
+      'claude-sonnet-5-5': { calls: 3, input: 1_000_000, output: 200_000, cacheRead: 30_000, cacheWrite: 4_000 },
+    },
+  }
+  on('state.get', ($, e, next) => {
+    const ref = e as unknown as { plugin: string; key: string }
+
+    return ref.plugin === 'compteur-tokens' ? ({ value: { value: counter[ref.key], version: 1 } } as never) : next(e)
+  })
+
+  await turn($, 'Session de test', async () => {})
+  await $.command.run({ command: 'etude-de-cas', args: 'Avec coût' } as never)
+
+  const body = world.files.get('etudes-de-cas/2026-10-11-avec-cout.md') ?? ''
+  expect(body.includes('- Coût estimé (équivalent API) : 0,412 $ pour 1 234 k tokens')).toBe(true)
 })
