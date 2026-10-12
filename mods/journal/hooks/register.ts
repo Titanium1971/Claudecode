@@ -104,8 +104,19 @@ function label(text: string): string {
   return cut(mask(text.replace(/\s+/g, ' ').trim()), LABEL_MAX)
 }
 
+// Un commit qui n'enregistre que JOURNAL.md est la tenue du journal lui-même : le noter créerait
+// une nouvelle entrée à commiter, et ainsi de suite sans fin.
+const JOURNAL_ONLY = /\bgit add\s+(?:-\S+\s+)*(?:\.\/)?JOURNAL\.md\s*(?:&&|;|\n|$)/
+
+export function isJournalOnly(command: string): boolean {
+  return (command.match(/\bgit add\b/g) ?? []).length === 1 && JOURNAL_ONLY.test(command)
+}
+
 function fromBash(command: string, output: string): string[] {
   const actions: string[] = []
+  if (isJournalOnly(command)) {
+    return actions
+  }
   if (/\bgit\b[^;&|\n]*\bcommit\b/.test(command)) {
     const m = /\[[^\]\s]+(?: \(root-commit\))? ([0-9a-f]{7,})\] (.+)/.exec(output)
     actions.push(m?.[1] !== undefined && m[2] !== undefined ? `Commit ${m[1]} « ${label(m[2])} »` : 'Commit')

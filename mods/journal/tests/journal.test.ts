@@ -2,7 +2,7 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
-import { lastEntries, mask, parisTime, summarizePrompt } from '../hooks/register'
+import { isJournalOnly, lastEntries, mask, parisTime, summarizePrompt } from '../hooks/register'
 
 // 11 octobre 2026, 14 h 32 UTC = 16 h 32 à Paris (heure d'été).
 const NOW = Date.UTC(2026, 9, 11, 14, 32)
@@ -173,4 +173,22 @@ test('l’heure de Paris suit l’heure d’été et d’hiver', async () => {
 test('lastEntries découpe le fichier par entrée', async () => {
   const content = '# Journal\n\nintro\n\n## A\n\n- x\n\n## B\n\n- y\n\n## C\n'
   expect(lastEntries(content, 2)).toEqual(['## B\n\n- y', '## C'])
+})
+
+test('un commit qui n’enregistre que JOURNAL.md n’ajoute pas d’entrée', async ($, on) => {
+  const world = bottom(on)
+
+  await turn($, 'Commite le journal', async () => {
+    await $.tool.call({ tool: 'Bash', command: 'git add JOURNAL.md && git commit -q -m "Journal : entrée" && git push -q origin claude/journal' } as never)
+  })
+
+  expect(world.writes.length).toBe(0)
+})
+
+test('isJournalOnly : seul JOURNAL.md, oui ; avec d’autres fichiers, non', async () => {
+  expect(isJournalOnly('git add JOURNAL.md && git commit -m "Journal"')).toBe(true)
+  expect(isJournalOnly('git add ./JOURNAL.md; git commit -m "Journal"')).toBe(true)
+  expect(isJournalOnly('git add -A mods/x JOURNAL.md && git commit -m "Mod x"')).toBe(false)
+  expect(isJournalOnly('git add JOURNAL.md && git add README.md && git commit -m "Doc"')).toBe(false)
+  expect(isJournalOnly('git commit -am "Tout"')).toBe(false)
 })
