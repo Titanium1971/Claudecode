@@ -30,3 +30,8 @@ Les mods de ce dépôt sont dans `mods/`. Une session cloud ne les charge pas to
   et `types/index.d.ts` s'il garde un état.
 - Avant de committer : `claude plugin validate mods/<nom>` puis `claude plugin test mods/<nom>`, qui doivent passer.
 - Ajoute chaque nouveau mod dans `.claude-plugin/marketplace.json` et dans le tableau du `README.md`.
+
+<!-- claude-reflect: learned rules (saved from the band; edit freely) -->
+## Learned rules
+- Réponds toujours avec des phrases courtes.
+<!-- end claude-reflect -->
