@@ -36,6 +36,18 @@ export function emptyFacts(now: number): CaseFacts {
 
 const text = (value: unknown): string => (typeof value === 'string' ? value : '')
 
+// « git commit » ou « git push » lancés comme commande (début, après &&, ;, || ou un retour à la ligne),
+// pas cités dans le texte d'un script.
+const GIT_COMMIT = /(?:^|&&|;|\|\||\n)\s*git\s+(?:-C\s+\S+\s+)?commit\b/
+const GIT_PUSH = /(?:^|&&|;|\|\||\n)\s*git\s+(?:-C\s+\S+\s+)?push\b/
+
+// Un vrai message de la personne : pas une commande /nom, ni la sortie d'un mod (« plugin+autre: … »).
+export function isRealPrompt(text: string): boolean {
+  const t = text.trim()
+
+  return t !== '' && !t.startsWith('/') && !t.startsWith('<') && !/^[a-z0-9-]+(\+[a-z0-9-]+)*: /.test(t)
+}
+
 // Le titre d'un commit : la première ligne du message, qu'il soit donné par -m ou par un here-doc.
 export function commitTitle(command: string): string {
   const heredoc = /<<-?\s*'?(\w+)'?\n([\s\S]*)/.exec(command)
@@ -65,10 +77,10 @@ export function recordCall(f: CaseFacts, e: Record<string, unknown>, isError: bo
   }
   if (tool === 'Bash' && !isError) {
     const command = text(e.command)
-    if (/\bgit commit\b/.test(command)) {
+    if (GIT_COMMIT.test(command)) {
       next.commits = [...f.commits, commitTitle(command)]
     }
-    if (/\bgit push\b/.test(command)) {
+    if (GIT_PUSH.test(command)) {
       next.pushes = f.pushes + 1
     }
   }
@@ -178,8 +190,10 @@ export function annex(f: CaseFacts, now: number, spend?: Spend): string {
 const RUBRIC = [
   'Tu rédiges une étude de cas portfolio en français, à partir des faits fournis seulement.',
   'Structure : Contexte, Problème, Solution, Outils, Résultat, Ce que j’en retiens.',
-  'Ne rien inventer : si un fait manque, ne pas le combler. Pas de nom de personne, client ou entreprise',
-  '(écris [client]). Environ 250 mots. Ton clair, sans jargon inutile, phrases courtes.',
+  'Ne rien inventer : si un fait manque, ne pas le combler. Les noms de clients sont déjà remplacés par [client] :',
+  'ne commente pas l’anonymisation. Environ 250 mots, ton clair, phrases courtes, sans jargon inutile.',
+  'Réponds uniquement avec ces six parties, chacune avec son titre en gras : pas de titre général,',
+  'pas de remarque sur les faits, pas de section en plus.',
 ].join(' ')
 
 export function brief(f: CaseFacts, factsText: string): string {
@@ -214,7 +228,7 @@ export const register: Register = on => {
     await update($, facts, f => {
       const base = f ?? emptyFacts(now)
 
-      return base.firstPrompt === '' ? { ...base, firstPrompt: e.text.slice(0, 200) } : base
+      return base.firstPrompt === '' && isRealPrompt(e.text) ? { ...base, firstPrompt: e.text.trim().slice(0, 200) } : base
     })
 
     return next(e)

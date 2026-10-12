@@ -30,3 +30,8 @@ Les entrées les plus récentes sont en bas. `/journal` affiche les dernières.
 
 - Commit
 - Push
+
+## 2026-10-12 05:25 — etude-de-cas+raccourcis: - Durée : 6 min • Tours : 2 · actions : 7 · erreurs : 0 • Coût estimé (équivalent API) : 3,42…
+
+- Commit
+- Push

@@ -2,7 +2,7 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
-import { annex, anonymise, commitTitle, emptyFacts, fileName, money, parseRules, recordCall, slugify } from '../hooks/register'
+import { annex, anonymise, commitTitle, emptyFacts, fileName, isRealPrompt, money, parseRules, recordCall, slugify } from '../hooks/register'
 
 // 11 octobre 2026, 14 h 32 UTC.
 const NOW = Date.UTC(2026, 9, 11, 14, 32)
@@ -211,4 +211,35 @@ test('commitTitle prend la première ligne, avec -m ou avec un here-doc', async 
   expect(commitTitle("git commit -m 'un titre'")).toBe('un titre')
   expect(commitTitle(`git commit -q -m "$(cat <<'EOF'\nJournal : entrée\n\nSession : https://x\nEOF\n)"`)).toBe('Journal : entrée')
   expect(commitTitle('git commit --amend --no-edit')).toBe('commit')
+})
+
+// ---------- Ce qui ne doit pas compter ----------
+
+test('un « git commit » cité dans un script ne compte pas ; une vraie commande compte', async () => {
+  let f = emptyFacts(NOW)
+  f = recordCall(f, { tool: 'Bash', command: `python3 - <<'EOF'\nexpect(commitTitle('git commit -m "a"'))\nEOF` }, false)
+  expect(f.commits).toEqual([])
+
+  f = recordCall(f, { tool: 'Bash', command: `cd /repo && git add -A && git commit -q -F - <<'EOF'\nTitre du commit\n\nCorps\nEOF\ngit push -q origin x` }, false)
+  expect(f.commits).toEqual(['Titre du commit'])
+  expect(f.pushes).toBe(1)
+})
+
+test('isRealPrompt écarte les commandes et les sorties de mods', async () => {
+  expect(isRealPrompt('Crée un workflow n8n')).toBe(true)
+  expect(isRealPrompt('/etude-de-cas apercu')).toBe(false)
+  expect(isRealPrompt('etude-de-cas+raccourcis: Étude de cas écrite : x.md')).toBe(false)
+  expect(isRealPrompt('journal: entrée ajoutée')).toBe(false)
+  expect(isRealPrompt('   ')).toBe(false)
+})
+
+test('le titre par défaut vient du premier vrai message, pas d’une sortie de commande', async ($, on) => {
+  const world = bottom(on)
+
+  await turn($, 'etude-de-cas+raccourcis: - Durée : 1 min', async () => {})
+  await turn($, 'Automatise mes relances clients', async () => {})
+  const { text } = await $.command.run({ command: 'etude-de-cas', args: '' } as never)
+
+  expect(text).toBe('Étude de cas écrite : etudes-de-cas/2026-10-11-automatise-mes-relances-clients.md')
+  expect(world.files.size).toBe(1)
 })
