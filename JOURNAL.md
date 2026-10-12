@@ -35,3 +35,9 @@ Les entrées les plus récentes sont en bas. `/journal` affiche les dernières.
 
 - Commit
 - Push
+
+## 2026-10-12 05:31 — Voilà ce que les commandes affichent dans l’appli Ipad
+
+- Fichiers modifiés : `etudes-de-cas/2026-10-12-mon-premier-mod-claude-code.md`
+- Commit
+- Push
