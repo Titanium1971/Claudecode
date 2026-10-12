@@ -50,8 +50,10 @@ export function isRealPrompt(text: string): boolean {
 
 // Le titre d'un commit : la première ligne du message, qu'il soit donné par -m ou par un here-doc.
 export function commitTitle(command: string): string {
-  const heredoc = /<<-?\s*'?(\w+)'?\n([\s\S]*)/.exec(command)
-  const quoted = /-m\s+"([^"]*)"|-m\s+'([^']*)'/.exec(command)
+  const start = command.search(GIT_COMMIT)
+  const part = start === -1 ? command : command.slice(start)
+  const heredoc = /<<-?\s*'?(\w+)'?\n([\s\S]*)/.exec(part)
+  const quoted = /-m\s+"([^"]*)"|-m\s+'([^']*)'/.exec(part)
   const raw = heredoc?.[2] ?? quoted?.[1] ?? quoted?.[2] ?? ''
   const first = raw.split('\n').map(line => line.trim()).find(line => line !== '') ?? ''
 
@@ -164,7 +166,50 @@ export function money(spend: Spend | undefined): string {
   return `- Coût estimé (équivalent API) : ${cost} pour ${tokens} tokens`
 }
 
-export function annex(f: CaseFacts, now: number, spend?: Spend): string {
+// Ce que Git a vu depuis le début de la session : les commits (titres) et les fichiers touchés.
+// JOURNAL.md est la tenue du journal, pas du travail : ni lui ni les commits qui ne touchent que lui.
+export type GitWork = { commits: string[]; files: string[] }
+
+const NOISE = 'JOURNAL.md'
+
+export function parseGit(log: string, status: string): GitWork {
+  const commits: string[] = []
+  const files = new Set<string>()
+  let subject: string | undefined
+  let touched = false
+  const close = (): void => {
+    if (subject !== undefined && touched) {
+      commits.push(subject.replace(/\s+/g, ' ').slice(0, TITLE_MAX))
+    }
+  }
+  for (const line of log.split('\n')) {
+    if (line.startsWith('\u0001')) {
+      close()
+      subject = line.slice(1).trim()
+      touched = false
+    } else if (line.trim() !== '' && line.trim() !== NOISE) {
+      files.add(line.trim())
+      touched = true
+    }
+  }
+  close()
+  for (const line of status.split('\n')) {
+    const path = line.slice(3).trim()
+    if (line.length > 3 && path !== NOISE) {
+      files.add(path.replace(/^.* -> /, ''))
+    }
+  }
+
+  return { commits, files: [...files] }
+}
+
+const FILES_SHOWN = 30
+
+export function annex(f: CaseFacts, now: number, spend?: Spend, git?: GitWork): string {
+  const files = git?.files ?? f.files
+  const commits = git?.commits ?? f.commits
+  const shownFiles = files.slice(0, FILES_SHOWN).map(file => `\`${file}\``).join(', ') || 'aucun'
+  const moreFiles = files.length > FILES_SHOWN ? ` … (+${files.length - FILES_SHOWN})` : ''
   const actions = Object.values(f.tools).reduce((sum, count) => sum + count, 0)
   const tools = Object.entries(f.tools)
     .sort((a, b) => b[1] - a[1])
@@ -177,9 +222,9 @@ export function annex(f: CaseFacts, now: number, spend?: Spend): string {
     `- Outils les plus utilisés : ${tools.join(', ') || 'aucun'}`,
     `- Tâches : ${f.tasksDone}/${f.tasks.length} terminées`,
     ...f.tasks.map(task => `  - ${task}`),
-    `- Fichiers modifiés (${f.files.length}) : ${f.files.map(file => `\`${file}\``).join(', ') || 'aucun'}`,
-    `- Commits : ${f.commits.length}`,
-    ...f.commits.map(commit => `  - ${commit}`),
+    `- Fichiers modifiés (${files.length}) : ${shownFiles}${moreFiles}`,
+    `- Commits : ${commits.length}`,
+    ...commits.map(commit => `  - ${commit}`),
     `- Envois sur GitHub (push) : ${f.pushes}`,
     `- Pull requests : ${f.pullRequests.length ? f.pullRequests.join(' ; ') : 'aucune'}`,
   ]
@@ -263,13 +308,14 @@ export const register: Register = on => {
     const current = (await read($, facts)) ?? emptyFacts(now)
     const rules = await readRules($)
     const spend = await readSpend($)
+    const git = await readGit($, current.startedAt)
     const title = e.args.trim()
 
     if (title === 'apercu') {
-      return { text: anonymise(annex(current, now, spend), rules) }
+      return { text: anonymise(annex(current, now, spend, git), rules) }
     }
 
-    const factsText = anonymise(annex(current, now, spend), rules)
+    const factsText = anonymise(annex(current, now, spend, git), rules)
     const story = await tell($, current, factsText, rules)
     const heading = title || anonymise(current.firstPrompt, rules).slice(0, TITLE_MAX) || 'Étude de cas'
     const body = [
@@ -318,6 +364,21 @@ async function freePath($: EngineInterface, wanted: string, now: number): Promis
   }
 
   return wanted.replace(/\.md$/, `-${now}.md`)
+}
+
+async function readGit($: EngineInterface, startedAt: number): Promise<GitWork | undefined> {
+  try {
+    const since = `--since=${new Date(startedAt).toISOString()}`
+    const log = await $.process.run(['git', 'log', since, '--no-merges', '--name-only', '--pretty=format:%x01%s'], { timeoutMs: 5000 })
+    const status = await $.process.run(['git', 'status', '--porcelain'], { timeoutMs: 5000 })
+    if (log.exitCode !== 0 || status.exitCode !== 0) {
+      return undefined
+    }
+
+    return parseGit(log.stdout, status.stdout)
+  } catch {
+    return undefined
+  }
 }
 
 async function readSpend($: EngineInterface): Promise<Spend | undefined> {

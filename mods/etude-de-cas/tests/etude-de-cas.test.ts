@@ -2,7 +2,7 @@ import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
-import { annex, anonymise, commitTitle, emptyFacts, fileName, isRealPrompt, money, parseRules, recordCall, slugify } from '../hooks/register'
+import { annex, anonymise, commitTitle, emptyFacts, fileName, isRealPrompt, money, parseGit, parseRules, recordCall, slugify } from '../hooks/register'
 
 // 11 octobre 2026, 14 h 32 UTC.
 const NOW = Date.UTC(2026, 9, 11, 14, 32)
@@ -252,4 +252,39 @@ test('une fiche existante n’est jamais écrasée : la nouvelle prend -2', asyn
 
   expect(text).toBe('Étude de cas écrite : etudes-de-cas/2026-10-11-titre-test-2.md')
   expect(world.files.get('etudes-de-cas/2026-10-11-titre-test.md')).toBe('retouchée à la main')
+})
+
+// ---------- Git, source des commits et des fichiers ----------
+
+test('commitTitle lit le here-doc de git commit, pas celui d’un script placé avant', async () => {
+  const command = `python3 - <<'PYEOF'\ndef sub(path, old, new):\n    pass\nPYEOF\ncd /repo && git add -A && git commit -q -F - <<'EOF'\nVrai titre\n\nCorps\nEOF`
+  expect(commitTitle(command)).toBe('Vrai titre')
+})
+
+test('parseGit : commits et fichiers, sans JOURNAL.md ni les commits qui ne touchent que lui', async () => {
+  const log = ['\u0001Ajoute le mod', 'mods/x/register.ts', 'README.md', '', '\u0001Journal : entrée', 'JOURNAL.md', '', '\u0001Corrige', 'mods/x/register.ts'].join('\n')
+  const status = [' M JOURNAL.md', '?? etudes-de-cas/fiche.md', 'R  ancien.md -> nouveau.md'].join('\n')
+
+  expect(parseGit(log, status)).toEqual({
+    commits: ['Ajoute le mod', 'Corrige'],
+    files: ['mods/x/register.ts', 'README.md', 'etudes-de-cas/fiche.md', 'nouveau.md'],
+  })
+})
+
+test('l’annexe prend les commits et les fichiers de Git quand il répond', async ($, on) => {
+  const world = bottom(on)
+  on('process.run', ($, e) => {
+    const argv = (e as unknown as { argv: string[] }).argv
+    const stdout = argv[1] === 'log' ? '\u0001Ajoute le mod\nmods/x/register.ts\n' : ''
+
+    return { value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
+
+  await turn($, 'Session de test', async () => {})
+  await $.tool.call({ tool: 'Write', file_path: '/repo/inconnu.ts' } as never)
+  const { text } = await $.command.run({ command: 'etude-de-cas', args: 'apercu' } as never)
+
+  expect((text ?? '').includes('- Commits : 1\n  - Ajoute le mod')).toBe(true)
+  expect((text ?? '').includes('Fichiers modifiés (1) : `mods/x/register.ts`')).toBe(true)
+  expect(world.models).toBe(0)
 })
